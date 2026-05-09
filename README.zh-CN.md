@@ -1,79 +1,72 @@
 # Molecule Design Loop
 
-一个面向 Codex 的开源分子设计 skill，强调约束驱动设计、确定性的 RDKit 初筛、可视化候选审阅、xTB 前必须人工确认，以及 Gemini 引导的迭代优化。
+一个面向 Codex 的开源分子设计 skill，强调约束驱动设计、确定性的 RDKit 过滤、候选结构可视化审阅、xTB 前必须人工确认，以及 Gemini 引导的迭代优化。
 
-## 这个 skill 解决什么问题
+[English](README.md) | [中文说明](README.zh-CN.md)
 
-很多“LLM 做分子设计”的流程通常会在两个地方出问题：
+如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。这份文档是给模型读的，不是给人类快速浏览的。
 
-- 生成了很多分子，但设计逻辑不够清楚、不方便审阅
-- 在明显的结构问题还没排除前，就过早进入廉价量化筛选
+> 这是一个“先约束、后计算”的分子设计工作流：先过滤明显不合理结构，再人工看图确认，最后再让 xTB 提供证据，而不是替你做最终科学判断。
 
-`molecule-design-loop` 的定位是一个更实用的中间层：
+## 这个仓库解决什么问题
 
-- 结合文献线索生成候选分子
-- 用确定性的 RDKit 规则做初筛
-- 生成 RDKit 驱动的 HTML 候选画廊
-- 在 xTB 之前强制人工结构确认
-- 用 Gemini 按锁定的设计规范打分，把 xTB 作为证据而不是裁判
+很多“LLM 做分子设计”的流程有几个常见问题：
+
+- 会生成很多分子，但设计逻辑不清楚，不方便审阅
+- 在明显结构问题还没排除前，就过早进入廉价量化筛选
+- 把计算结果误当成最终结论，而不是辅助证据
+
+`molecule-design-loop` 的定位，就是把这些环节变得更可控、更可解释。
+
+## 这个 skill 会做什么
+
+- 读取 Markdown 设计规范，解析硬约束、软偏好和 xTB 可测试代理指标
+- 结合本地上下文与近期文献生成文献资料包
+- 生成可解释的 SMILES 候选，而不是只追求“新颖”
+- 用 RDKit 做有效性、描述符、警示片段和骨架多样性过滤
+- 在任何 xTB 运行前先生成 HTML 候选画廊供人工审阅
+- 强制用户显式批准后才进入 xTB
+- 在收集到证据后，再让 Gemini 按锁定设计规范做结构化打分
 
 ## 工作流程
 
 ```text
 design_spec.md
-→ 文献资料包
-→ SMILES 候选
-→ RDKit 过滤
-→ RDKit HTML 候选画廊
-→ 用户结构确认
-→ xTB 筛选
-→ Gemini 约束评分
-→ 下一轮设计
+→ DESIGN_SPEC_LOCKED.md
+→ LIT_PACKET.md
+→ ROUND_N_CANDIDATES.csv
+→ ROUND_N_FILTERED.csv
+→ ROUND_N_CANDIDATE_GALLERY.html
+→ 用户审批检查点
+→ ROUND_N_XTB_RESULTS.csv
+→ ROUND_N_DECISION.md
+→ 下一轮或最终 DESIGN_REPORT.md
 ```
 
-## 包含内容
+## 快速开始
 
-- `molecule-design-loop/`
-  - 主 Codex skill
-  - RDKit 描述符与药化过滤脚本
-  - RDKit HTML 候选画廊渲染脚本
-  - xTB 审批检查点模板
-- `examples/example_design_spec.md`
-- `optional-skills/research-lit/SKILL.md`
-- `install_molecule_design_loop.sh`
-
-## 主要特点
-
-- 优先满足设计约束，而不是优先追求“新颖性”
-- 保留被拒绝的候选及拒绝原因，便于后续迭代
-- 使用 RDKit 做结构合理性、警示片段和多样性筛选
-- 在任何 xTB 运行前先生成人类可读的 HTML 候选画廊
-- 强制用户显式批准后才进入 xTB
-- 用 Gemini 评估候选对设计规范的符合程度，同时让 xTB 只提供辅助证据
-
-## 环境要求
-
-- Codex，且可访问本地 skills 目录
-- Python 3
-- 当前 Python 环境中已安装 RDKit
-
-可选：
-
-- xTB，用于量化筛选阶段
-- `research-lit`，如果你希望配套使用文献检索辅助 skill
-- `gemini-research`，如果你的 Codex 环境支持
-
-## 安装
+安装主 skill：
 
 ```bash
 bash install_molecule_design_loop.sh
 ```
 
-如果还想一起安装可选的 `research-lit` 配套 skill：
+如果想一起安装可选文献辅助 skill：
 
 ```bash
 bash install_molecule_design_loop.sh --install-research-lit
 ```
+
+在 Codex 中调用：
+
+```text
+/molecule-design-loop "/path/to/design_spec.md"
+```
+
+示例输入文件：
+
+- [`examples/example_design_spec.md`](examples/example_design_spec.md)
+- [`molecule-design-loop/templates/design_spec_template.md`](molecule-design-loop/templates/design_spec_template.md)
 
 默认安装位置：
 
@@ -87,38 +80,60 @@ $CODEX_HOME/skills/molecule-design-loop
 ~/.codex/skills/molecule-design-loop
 ```
 
-## 使用方式
+## 仓库包含什么
 
-```text
-/molecule-design-loop "/path/to/design_spec.md"
-```
+- `molecule-design-loop/`
+- `examples/example_design_spec.md`
+- `optional-skills/research-lit/SKILL.md`
+- `install_molecule_design_loop.sh`
 
-示例：
+`molecule-design-loop/` 内置辅助文件：
 
-```text
-/molecule-design-loop "/path/to/example_design_spec.md"
-```
+- `scripts/rdkit_filter_candidates.py`
+- `scripts/render_candidate_gallery.py`
+- `references/candidate_schema.md`
+- `templates/design_spec_template.md`
+- `templates/xtb_approval_template.md`
 
-## 核心设计原则
+## 设计原则
 
-xTB 不是最终决策者。
+- 先满足约束，再谈新颖性
+- xTB 是证据，不是最终裁判
+- xTB 之前必须先做人类结构审阅
+- 保留被拒候选和拒绝原因，便于下一轮迭代
+- 每轮候选应测试可解释的设计动作，而不是堆大量近似重复结构
 
-这个 skill 把 xTB 视为一种低成本的计算证据来源。最终排序由锁定的设计规范和 Gemini 的结构化评分共同决定，而且前提是用户已经人工审阅并批准候选结构。
+## 环境要求
+
+- Codex，且能访问本地 skills 目录
+- Python 3
+- 当前 Python 环境已安装 RDKit
+
+可选：
+
+- xTB，用于量化筛选阶段
+- `research-lit`，作为配套文献辅助 skill
+- `gemini-research`，如果你的 Codex 环境支持
 
 ## 仓库结构
 
 ```text
 .
-├── molecule-design-loop/
+├── AGENT_GUIDE.md
+├── CONTRIBUTING.md
+├── CONTRIBUTING_CN.md
 ├── examples/
+├── molecule-design-loop/
 ├── optional-skills/
+├── README.md
+├── README.zh-CN.md
 └── install_molecule_design_loop.sh
 ```
 
+## 参与贡献
+
+见 [CONTRIBUTING.md](CONTRIBUTING.md) 或 [CONTRIBUTING_CN.md](CONTRIBUTING_CN.md)。
+
 ## 许可证
 
-MIT
-
-## 如果它对你有帮助
-
-如果这个 skill 对你的工作流有帮助，欢迎给仓库点个 Star，让更多人能找到它。
+[MIT](LICENSE)
