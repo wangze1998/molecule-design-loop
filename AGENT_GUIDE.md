@@ -67,6 +67,7 @@ Prefer a project-local `molecule-design-stage/` directory with:
 - `ROUND_N_CANDIDATE_GALLERY.html`
 - `ROUND_N_XTB_APPROVAL.md`
 - `ROUND_N_XTB_RESULTS.csv`
+- `ROUND_N_GEMINI_INPUT.md`
 - `ROUND_N_DECISION.md`
 - `DESIGN_LOOP_STATE.json`
 - `DESIGN_REPORT.md`
@@ -82,7 +83,7 @@ Prefer a project-local `molecule-design-stage/` directory with:
 6. Render `ROUND_N_CANDIDATE_GALLERY.html`.
 7. Pause for explicit user approval before any xTB run.
 8. Run xTB only on approved candidates.
-9. Ask Gemini to score candidates against the locked brief using xTB as supporting evidence.
+9. Write `ROUND_N_GEMINI_INPUT.md` and ask Gemini to score candidates against the locked brief using xTB as supporting evidence.
 10. Either iterate or write the final report.
 
 ## Hard Guardrails
