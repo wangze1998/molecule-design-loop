@@ -1,0 +1,82 @@
+run_id: example_matrix_run
+output_dir: molecule-design-stage
+round: 1
+family: example_aromatic_proxy
+
+scaffold:
+  templates:
+    full: "{distal_group.smiles}"
+    headgroup: "{distal_group.smiles}"
+  parent_or_seed_default: example_seed
+  target_constraint: Example aromatic proxy series for smoke-testing the reusable stage runner.
+
+axes:
+  distal_group:
+    anisole:
+      label: anisole
+      smiles: COc1ccccc1
+      rationale: Compact aromatic control with one ether handle.
+      expected: Should pass RDKit and generate a simple aromatic dimer seed.
+      risk: Too simple to represent a real design brief.
+    phenetole:
+      label: phenetole
+      smiles: CCOc1ccccc1
+      rationale: Adds one extra carbon to probe small flexibility increase.
+      expected: Slightly higher flexibility than anisole while keeping the aromatic core simple.
+      risk: May be too floppy for a tight stacking proxy.
+    acetanilide:
+      label: acetanilide
+      smiles: CC(=O)Nc1ccccc1
+      rationale: Adds an amide-bearing aromatic comparator.
+      expected: Higher polarity and H-bonding surface than the ether controls.
+      risk: The amide changes polarity more strongly than a subtle substituent edit.
+
+candidate_plan:
+  mode: matrix
+  items:
+    - candidate_id: EXAMPLE_01
+      axes: {distal_group: anisole}
+      design_move: Baseline aromatic ether control.
+      proposal_family: controls
+      constraint_coverage: smoke_test
+      novelty_class: conservative
+    - candidate_id: EXAMPLE_02
+      axes: {distal_group: phenetole}
+      design_move: Add one-carbon reach while preserving the same aromatic core.
+      proposal_family: linker_tuning
+      constraint_coverage: flexibility_probe
+      novelty_class: conservative
+    - candidate_id: EXAMPLE_03
+      axes: {distal_group: acetanilide}
+      design_move: Introduce a polar amide-bearing aromatic comparator.
+      proposal_family: polarity_rebalance
+      constraint_coverage: polarity_probe
+      novelty_class: bounded_exploration
+
+filter:
+  allowed_elements: [C, H, N, O]
+  max_rotatable: 5
+
+gallery:
+  title: Example Candidate Gallery
+
+approval:
+  require_explicit: true
+  structural_concerns:
+    - Example config only. Replace with project-specific constraints before real xTB runs.
+
+xtb:
+  binary: xtb
+  jobs_dir: round_1
+  max_jobs: 2
+  multiplicity: 1
+
+gemini:
+  enabled: true
+  review_rules:
+    - Treat xTB as a low-cost geometry and stacking proxy only.
+    - Judge candidates against the locked design brief, not raw xTB energy alone.
+    - Call out unsupported claims explicitly when evidence is missing.
+
+backfolding:
+  enabled: false
