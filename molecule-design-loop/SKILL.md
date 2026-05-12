@@ -49,6 +49,7 @@ Use a project-local directory:
 - `molecule-design-stage/ROUND_N_CANDIDATE_GALLERY.html`
 - `molecule-design-stage/ROUND_N_XTB_APPROVAL.md`
 - `molecule-design-stage/ROUND_N_XTB_RESULTS.csv`
+- `molecule-design-stage/ROUND_N_GEMINI_INPUT.md`
 - `molecule-design-stage/ROUND_N_DECISION.md`
 - `molecule-design-stage/DESIGN_LOOP_STATE.json`
 - `molecule-design-stage/DESIGN_REPORT.md`
@@ -68,6 +69,16 @@ If a local `research-wiki/` exists, also update:
 - `research-wiki/events.jsonl`
 
 Use the shared event schema in `../shared-references/events-jsonl.md` when logging.
+
+## Helper Script Rules
+
+If the workflow needs a new helper program for auxiliary calculations, preprocessing, postprocessing, or report assembly:
+
+- prefer the pattern `one main entrypoint + reusable modules + per-run input config only` (`一个主入口 + 可复用模块 + 每次只写输入配置`);
+- keep the reusable logic needed for later runs of the same workflow;
+- do not hard-code the script to one round number, one molecule, one file path, one threshold set, or one temporary local layout unless the user explicitly asks for a one-off throwaway script;
+- prefer parameterized inputs, documented CLI flags, and stable CSV/Markdown contracts so the same script can be reused in later rounds;
+- when possible, read evolving constraints from workflow files such as `DESIGN_SPEC_LOCKED.md`, `ROUND_N_FILTERED.csv`, or other stage artifacts instead of baking those values into code.
 
 ## Constants
 
