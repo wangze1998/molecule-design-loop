@@ -125,6 +125,7 @@ def run_backfold_step(config: dict[str, Any]) -> dict[str, Any]:
 
 def write_report(config: dict[str, Any]) -> Path:
     paths = artifact_paths(config)
+    paths["output_dir"].mkdir(parents=True, exist_ok=True)
     filtered = read_csv(paths["filtered"]) if paths["filtered"].exists() else []
     xtb_rows = read_csv(paths["xtb_results"]) if paths["xtb_results"].exists() else []
     top = [row for row in filtered if row.get("filter_decision") == "pass"][:10]
