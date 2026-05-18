@@ -6,7 +6,7 @@
 
 一个面向 Codex 的开源分子设计 skill，强调约束驱动设计、确定性的 RDKit 过滤、候选结构可视化审阅、xTB 前必须人工确认，以及 Gemini 引导的迭代优化。
 
-[English](README.md) | [中文说明](README.zh-CN.md) | [GitHub Releases](https://github.com/wangze1998/molecule-design-loop/releases)
+[English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md)
 
 > **Molecule Design Loop v0.1.0 → v0.1.2**（2026-05）—— 三步公开包装更新序列。**v0.1.2** 这次补上了更接近 ARIS 的 GitHub 发布说明和仓库更新展示。**v0.1.1** 发布了脱敏后的 `molecule-design-stage-src/` 源码包。**v0.1.0** 则完成了主 skill、双语文档、安装脚本和可选文献配套 skill 的首次公开发布。
 > **xTB 前的人类审批仍然是强制的。** **Gemini 交接入口也保留为一等产物**：`ROUND_N_GEMINI_INPUT.md`。
