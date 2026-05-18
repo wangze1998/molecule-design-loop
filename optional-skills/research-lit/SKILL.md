@@ -174,7 +174,7 @@ Locate the fetch script and search arXiv directly:
 ```bash
 # Try to find arxiv_fetch.py
 SCRIPT=$(find tools/ -name "arxiv_fetch.py" 2>/dev/null | head -1)
-# If not found, check ARIS install
+# If not found, check the shared skill install
 [ -z "$SCRIPT" ] && SCRIPT=$(find ~/.codex/skills/arxiv/ -name "arxiv_fetch.py" 2>/dev/null | head -1)
 
 # Search arXiv API for structured results (title, abstract, authors, categories)
