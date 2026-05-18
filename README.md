@@ -4,11 +4,11 @@
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
 ![Status](https://img.shields.io/badge/status-v0.1.3-blue)
 
-Open Codex skill for constraint-driven molecular design with deterministic RDKit filtering, visual candidate review, explicit user approval before xTB, and Gemini-guided iteration.
+Open Codex skill for constraint-driven molecule and polymer design with deterministic RDKit filtering, visual candidate review, explicit user approval before xTB, and Gemini-guided iteration.
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Molecule Design Loop v0.1.0 → v0.1.3** (2026-05) — four-step public packaging sequence. **v0.1.3** re-checks the GitHub package against the current local skill source tree and clarifies what is bundled versus kept local-only. **v0.1.2** adds ARIS-style GitHub-facing release notes and repository update tracking. **v0.1.1** shipped the sanitized `molecule-design-stage-src/` source package. **v0.1.0** published the main skill, bilingual docs, installer, and optional literature companion.
+> **Molecule Design Loop v0.1.0 → v0.1.3** (2026-05) — four-step public packaging sequence. **v0.1.3** re-checks the GitHub package against the current local skill source tree, clarifies what is bundled versus kept local-only, and explicitly restores the polymer-design framing in the public docs and update log. **v0.1.2** adds a clearer GitHub-facing release summary and repository update timeline. **v0.1.1** shipped the sanitized `molecule-design-stage-src/` source package. **v0.1.0** published the main skill, bilingual docs, installer, and optional literature companion.
 > **Human approval stays mandatory before xTB.** **Gemini handoff stays first-class** through `ROUND_N_GEMINI_INPUT.md`.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -25,9 +25,9 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Release Track
 
-**v0.1.3** (2026-05-19) — Local-source sync verification refresh. Re-checked the public repo against the current local `molecule-design-loop/`, `examples/`, and optional `research-lit` copies, then documented what is intentionally bundled and what stays local-only.
+**v0.1.3** (2026-05-19) — Local-source sync verification refresh. Re-checked the public repo against the current local `molecule-design-loop/`, `examples/`, and optional `research-lit` copies, then documented what is intentionally bundled and what stays local-only. This update also makes the polymer-design scope explicit in the public release notes.
 
-**v0.1.2** (2026-05-18) — ARIS-style repository update notes + release tracking refresh. README now carries a version-chain summary, public-facing update timeline, and clearer release framing. No workflow logic changed in this release.
+**v0.1.2** (2026-05-18) — GitHub-facing repository update notes + release tracking refresh. README now carries a version-chain summary, public-facing update timeline, and clearer release framing. No workflow logic changed in this release.
 
 **v0.1.1** (2026-05-12) — Sanitized stage-runner source package. Added `molecule-design-stage-src/`, reusable `run_design.py`, reusable `molecular_design/` modules, example config, tests, and formalized `ROUND_N_GEMINI_INPUT.md` as the Gemini handoff artifact.
 
@@ -45,14 +45,15 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
-- **2026-05-19** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Verified the public repo against the current local skill source tree, added share-package scope docs, and clarified that local context-only helper skills are not bundled into the public repo.
-- **2026-05-18** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) README rewritten in a more ARIS-like release/update style, with version-chain summary, release-track notes, and public changelog links.
+- **2026-05-19** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Verified the public repo against the current local skill source tree, added share-package scope docs, clarified that local context-only helper skills are not bundled into the public repo, and explicitly called out the polymer-design scope in the public update log.
+- **2026-05-18** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) README rewritten into a clearer release/update format, with version-chain summary, release-track notes, and public changelog links.
 - **2026-05-12** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Added the sanitized [`molecule-design-stage-src/`](molecule-design-stage-src/) package with reusable entrypoint, modular workflow code, tests, and preserved Gemini handoff artifact.
 - **2026-05-10** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Initial public repo packaging: main skill, optional literature helper, installer, bilingual documentation, and GitHub-ready repo structure.
 
 ## What the skill does
 
 - Reads a Markdown design brief with hard constraints, soft preferences, and xTB proxy targets
+- Supports both small-molecule candidate rounds and polymer-design workflows built around interpretable monomer, headgroup, or motif changes
 - Builds a literature packet from local context plus recent papers
 - Proposes interpretable SMILES candidates instead of novelty-only free-form generations
 - Applies deterministic RDKit checks for validity, descriptors, alerts, and scaffold diversity
