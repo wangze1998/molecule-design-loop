@@ -8,7 +8,7 @@ Open Codex skill for constraint-driven molecular design with deterministic RDKit
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md)
 
-> **Molecule Design Loop v0.1.0 → v0.1.2** (2026-05) — three-step public packaging sequence. **v0.1.2** adds ARIS-style GitHub-facing release notes and repository update tracking. **v0.1.1** shipped the sanitized `molecule-design-stage-src/` source package. **v0.1.0** published the main skill, bilingual docs, installer, and optional literature companion.
+> **Molecule Design Loop v0.1.0 → v0.1.2** (2026-05) — three-step public packaging sequence. **v0.1.2** adds GitHub-facing release notes and repository update tracking. **v0.1.1** shipped the sanitized `molecule-design-stage-src/` source package. **v0.1.0** published the main skill, bilingual docs, installer, and optional literature companion.
 > **Human approval stays mandatory before xTB.** **Gemini handoff stays first-class** through `ROUND_N_GEMINI_INPUT.md`.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
