@@ -2,6 +2,27 @@
 
 All notable changes to `molecule-design-loop` will be tracked in this file.
 
+## v0.1.2 - 2026-05-18
+
+ARIS-style GitHub-facing release-note refresh for the public repository.
+
+### Added
+
+- README release-track summary covering `v0.1.0 → v0.1.2`
+- README `What's New` section with dated public-facing updates
+- clearer release-history framing for current users landing directly on the repo homepage
+
+### Changed
+
+- status badge bumped from `v0.1.1` to `v0.1.2`
+- README and Chinese README now present updates in a more ARIS-like release-summary format
+- changelog remains aligned with actual repo history while becoming easier to scan from GitHub
+
+### Notes
+
+- No molecular-design workflow logic changed in this release
+- Main skill behavior, stage runner behavior, and Gemini handoff behavior are unchanged from `v0.1.1`
+
 ## v0.1.1 - 2026-05-12
 
 Published a sanitized source-only molecular design stage runner while keeping the Gemini handoff path intact.
