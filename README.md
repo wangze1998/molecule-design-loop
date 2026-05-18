@@ -2,11 +2,14 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.1.1-blue)
+![Status](https://img.shields.io/badge/status-v0.1.2-blue)
 
 Open Codex skill for constraint-driven molecular design with deterministic RDKit filtering, visual candidate review, explicit user approval before xTB, and Gemini-guided iteration.
 
-[English](README.md) | [中文说明](README.zh-CN.md)
+[English](README.md) | [中文说明](README.zh-CN.md) | [GitHub Releases](https://github.com/wangze1998/molecule-design-loop/releases)
+
+> **Molecule Design Loop v0.1.0 → v0.1.2** (2026-05) — three-step public packaging sequence. **v0.1.2** adds ARIS-style GitHub-facing release notes and repository update tracking. **v0.1.1** shipped the sanitized `molecule-design-stage-src/` source package. **v0.1.0** published the main skill, bilingual docs, installer, and optional literature companion.
+> **Human approval stays mandatory before xTB.** **Gemini handoff stays first-class** through `ROUND_N_GEMINI_INPUT.md`.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
 
@@ -14,9 +17,18 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release line: `v0.1.1`
+- Current release line: `v0.1.2`
 - Repo focus: publishable Codex skill plus helper scripts and templates
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
+- Latest repository-facing update: ARIS-style release summary, `What's New`, and clearer public changelog tracking
+
+## Release Track
+
+**v0.1.2** (2026-05-18) — ARIS-style repository update notes + release tracking refresh. README now carries a version-chain summary, public-facing update timeline, and clearer release framing. No workflow logic changed in this release.
+
+**v0.1.1** (2026-05-12) — Sanitized stage-runner source package. Added `molecule-design-stage-src/`, reusable `run_design.py`, reusable `molecular_design/` modules, example config, tests, and formalized `ROUND_N_GEMINI_INPUT.md` as the Gemini handoff artifact.
+
+**v0.1.0** (2026-05-10) — Initial public open-source packaging. Published the main Codex skill, optional `research-lit` companion, bilingual README set, install script, contribution docs, and release tracking.
 
 ## Why this repo exists
 
@@ -27,6 +39,12 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 - they blur the line between computational evidence and scientific decision-making
 
 `molecule-design-loop` is a practical middle layer for that gap.
+
+## What's New
+
+- **2026-05-18** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) README rewritten in a more ARIS-like release/update style, with version-chain summary, release-track notes, and public changelog links.
+- **2026-05-12** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Added the sanitized [`molecule-design-stage-src/`](molecule-design-stage-src/) package with reusable entrypoint, modular workflow code, tests, and preserved Gemini handoff artifact.
+- **2026-05-10** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Initial public repo packaging: main skill, optional literature helper, installer, bilingual documentation, and GitHub-ready repo structure.
 
 ## What the skill does
 
