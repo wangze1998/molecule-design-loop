@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.1.2-blue)
+![Status](https://img.shields.io/badge/status-v0.1.3-blue)
 
 Open Codex skill for constraint-driven molecular design with deterministic RDKit filtering, visual candidate review, explicit user approval before xTB, and Gemini-guided iteration.
 
-[English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md)
+[English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Molecule Design Loop v0.1.0 → v0.1.2** (2026-05) — three-step public packaging sequence. **v0.1.2** adds GitHub-facing release notes and repository update tracking. **v0.1.1** shipped the sanitized `molecule-design-stage-src/` source package. **v0.1.0** published the main skill, bilingual docs, installer, and optional literature companion.
+> **Molecule Design Loop v0.1.0 → v0.1.3** (2026-05) — four-step public packaging sequence. **v0.1.3** re-checks the GitHub package against the current local skill source tree and clarifies what is bundled versus kept local-only. **v0.1.2** adds ARIS-style GitHub-facing release notes and repository update tracking. **v0.1.1** shipped the sanitized `molecule-design-stage-src/` source package. **v0.1.0** published the main skill, bilingual docs, installer, and optional literature companion.
 > **Human approval stays mandatory before xTB.** **Gemini handoff stays first-class** through `ROUND_N_GEMINI_INPUT.md`.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -17,12 +17,15 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release line: `v0.1.2`
+- Current release line: `v0.1.3`
 - Repo focus: publishable Codex skill plus helper scripts and templates
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
-- Latest repository-facing update: ARIS-style release summary, `What's New`, and clearer public changelog tracking
+- Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
+- Latest repository-facing update: local-source sync check plus clearer package-scope documentation
 
 ## Release Track
+
+**v0.1.3** (2026-05-19) — Local-source sync verification refresh. Re-checked the public repo against the current local `molecule-design-loop/`, `examples/`, and optional `research-lit` copies, then documented what is intentionally bundled and what stays local-only.
 
 **v0.1.2** (2026-05-18) — ARIS-style repository update notes + release tracking refresh. README now carries a version-chain summary, public-facing update timeline, and clearer release framing. No workflow logic changed in this release.
 
@@ -42,6 +45,7 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
+- **2026-05-19** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Verified the public repo against the current local skill source tree, added share-package scope docs, and clarified that local context-only helper skills are not bundled into the public repo.
 - **2026-05-18** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) README rewritten in a more ARIS-like release/update style, with version-chain summary, release-track notes, and public changelog links.
 - **2026-05-12** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Added the sanitized [`molecule-design-stage-src/`](molecule-design-stage-src/) package with reusable entrypoint, modular workflow code, tests, and preserved Gemini handoff artifact.
 - **2026-05-10** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Initial public repo packaging: main skill, optional literature helper, installer, bilingual documentation, and GitHub-ready repo structure.
@@ -140,6 +144,8 @@ Bundled helpers inside `molecule-design-loop/`:
 - `templates/design_spec_template.md`
 - `templates/xtb_approval_template.md`
 
+Packaging details and local-only exclusions are documented in [SHARE_PACKAGE.md](SHARE_PACKAGE.md).
+
 ## Design Principles
 
 - Constraints first, novelty second
@@ -173,6 +179,8 @@ Optional:
 ├── optional-skills/
 ├── README.md
 ├── README.zh-CN.md
+├── SHARE_PACKAGE.md
+├── SHARE_PACKAGE.zh-CN.md
 └── install_molecule_design_loop.sh
 ```
 
