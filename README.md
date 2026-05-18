@@ -8,7 +8,7 @@ Open Codex skill for constraint-driven molecule and polymer design with determin
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Molecule Design Loop v0.1.0 → v0.1.3** (2026-05) — four-step public packaging sequence. **v0.1.3** re-checks the GitHub package against the current local skill source tree, clarifies what is bundled versus kept local-only, and explicitly restores the polymer-design framing in the public docs and update log. **v0.1.2** adds a clearer GitHub-facing release summary and repository update timeline. **v0.1.1** shipped the sanitized `molecule-design-stage-src/` source package. **v0.1.0** published the main skill, bilingual docs, installer, and optional literature companion.
+> **Current release: v0.1.3** (2026-05-19). This release sharpens the public package around chemistry-facing molecule and polymer design: monomer/headgroup/motif iteration, RDKit triage, human review before xTB, and a Gemini handoff that stays easy to inspect.
 > **Human approval stays mandatory before xTB.** **Gemini handoff stays first-class** through `ROUND_N_GEMINI_INPUT.md`.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -21,13 +21,13 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 - Repo focus: publishable Codex skill plus helper scripts and templates
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
-- Latest repository-facing update: local-source sync check plus clearer package-scope documentation
+- Latest update: polymer-design documentation, installable package notes, and cleaner release history
 
 ## Release Track
 
-**v0.1.3** (2026-05-19) — Local-source sync verification refresh. Re-checked the public repo against the current local `molecule-design-loop/`, `examples/`, and optional `research-lit` copies, then documented what is intentionally bundled and what stays local-only. This update also makes the polymer-design scope explicit in the public release notes.
+**v0.1.3** (2026-05-19) — Polymer-design documentation and package notes. README and changelog now describe the skill as a molecule/polymer design loop, including interpretable monomer, headgroup, and motif changes. Added share-package notes for the installable skill, optional literature helper, and sanitized stage runner.
 
-**v0.1.2** (2026-05-18) — GitHub-facing repository update notes + release tracking refresh. README now carries a version-chain summary, public-facing update timeline, and clearer release framing. No workflow logic changed in this release.
+**v0.1.2** (2026-05-18) — Repository landing-page refresh. README now carries a version-chain summary, public-facing update timeline, and clearer release framing. No workflow logic changed in this release.
 
 **v0.1.1** (2026-05-12) — Sanitized stage-runner source package. Added `molecule-design-stage-src/`, reusable `run_design.py`, reusable `molecular_design/` modules, example config, tests, and formalized `ROUND_N_GEMINI_INPUT.md` as the Gemini handoff artifact.
 
@@ -45,7 +45,7 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
-- **2026-05-19** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Verified the public repo against the current local skill source tree, added share-package scope docs, clarified that local context-only helper skills are not bundled into the public repo, and explicitly called out the polymer-design scope in the public update log.
+- **2026-05-19** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Clarified the polymer-design scope, added share-package notes, and rewrote the v0.1.3 changelog around what changed for users of the skill.
 - **2026-05-18** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) README rewritten into a clearer release/update format, with version-chain summary, release-track notes, and public changelog links.
 - **2026-05-12** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Added the sanitized [`molecule-design-stage-src/`](molecule-design-stage-src/) package with reusable entrypoint, modular workflow code, tests, and preserved Gemini handoff artifact.
 - **2026-05-10** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Initial public repo packaging: main skill, optional literature helper, installer, bilingual documentation, and GitHub-ready repo structure.
@@ -145,7 +145,7 @@ Bundled helpers inside `molecule-design-loop/`:
 - `templates/design_spec_template.md`
 - `templates/xtb_approval_template.md`
 
-Packaging details and local-only exclusions are documented in [SHARE_PACKAGE.md](SHARE_PACKAGE.md).
+Packaging details are documented in [SHARE_PACKAGE.md](SHARE_PACKAGE.md).
 
 ## Design Principles
 
