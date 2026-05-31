@@ -2,14 +2,14 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.1.3-blue)
+![Status](https://img.shields.io/badge/status-v0.2.0-blue)
 
-Open Codex skill for constraint-driven molecule and polymer design with deterministic RDKit filtering, visual candidate review, explicit user approval before xTB, and Gemini-guided iteration.
+Open Codex skill for constraint-driven molecule and polymer design. Integrates the user's Zotero library and local Gemini MCP for dual-stream literature intelligence, adversarial chemistry review, novelty checking, and result-to-claim auditing — alongside RDKit filtering, visual candidate review, and explicit user approval before xTB.
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Current release: v0.1.3** (2026-05-19). This release sharpens the public package around chemistry-facing molecule and polymer design: monomer/headgroup/motif iteration, RDKit triage, human review before xTB, and a Gemini handoff that stays easy to inspect.
-> **Human approval stays mandatory before xTB.** **Gemini handoff stays first-class** through `ROUND_N_GEMINI_INPUT.md`.
+> **Current release: v0.2.0** (2026-05-31). Major workflow upgrade: Zotero personal library + active search now run as parallel literature streams; Gemini adversarial reviewer challenges every candidate batch; a novelty check catches already-reported structures; and a result-to-claim audit gates scoring so computational evidence cannot outrun design conclusions.
+> **Human approval stays mandatory before xTB.** **Zotero MCP and Gemini MCP must be configured** for the new steps — the skill falls back gracefully when they are unavailable.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
 
@@ -17,63 +17,77 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release line: `v0.1.3`
-- Repo focus: publishable Codex skill plus helper scripts and templates
+- Current release: `v0.2.0` — complete redesign
+- Repo focus: modular Codex skill for Zotero-grounded, adversarially reviewed molecular design
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
-- Latest update: polymer-design documentation, installable package notes, and cleaner release history
 
 ## Release Track
 
-**v0.1.3** (2026-05-19) — Polymer-design documentation and package notes. README and changelog now describe the skill as a molecule/polymer design loop, including interpretable monomer, headgroup, and motif changes. Added share-package notes for the installable skill, optional literature helper, and sanitized stage runner.
+**v0.2.0** (2026-05-31) — Complete redesign. SKILL.md restructured from 1041 → 360 lines; ten protocol reference files extracted. Dual Zotero + active-search literature streams. Three new mandatory gates: adversarial chemistry review (Step 3.5), novelty check (Step 5.5), result-to-claim audit (Step 9.5). Gemini and Zotero MCPs are now named first-class roles.
 
-**v0.1.2** (2026-05-18) — Repository landing-page refresh. README now carries a version-chain summary, public-facing update timeline, and clearer release framing. No workflow logic changed in this release.
+**v0.1.3** (2026-05-19) — Polymer-design documentation and package notes.
 
-**v0.1.1** (2026-05-12) — Sanitized stage-runner source package. Added `molecule-design-stage-src/`, reusable `run_design.py`, reusable `molecular_design/` modules, example config, tests, and formalized `ROUND_N_GEMINI_INPUT.md` as the Gemini handoff artifact.
+**v0.1.2** (2026-05-18) — Repository landing-page refresh. No workflow logic changed.
 
-**v0.1.0** (2026-05-10) — Initial public open-source packaging. Published the main Codex skill, optional `research-lit` companion, bilingual README set, install script, contribution docs, and release tracking.
+**v0.1.1** (2026-05-12) — Sanitized stage-runner source package (`molecule-design-stage-src/`).
+
+**v0.1.0** (2026-05-10) — Initial public open-source packaging.
 
 ## Why this repo exists
 
 Many "LLM for molecule design" workflows fail in predictable ways:
 
-- they generate many molecules but make the design logic hard to audit
-- they push cheap quantum screening too early, before basic structural issues are removed
-- they blur the line between computational evidence and scientific decision-making
+- they generate molecules without grounding them in the field's known scaffolds and SAR
+- they let the same model that designed a candidate also score it — no adversarial check
+- they push xTB numbers into design conclusions without auditing what the numbers actually prove
 
-`molecule-design-loop` is a practical middle layer for that gap.
+`molecule-design-loop` is a structured loop against those failure modes.
 
 ## What's New
 
-- **2026-05-19** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Clarified the polymer-design scope, added share-package notes, and rewrote the v0.1.3 changelog around what changed for users of the skill.
-- **2026-05-18** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) README rewritten into a clearer release/update format, with version-chain summary, release-track notes, and public changelog links.
-- **2026-05-12** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Added the sanitized [`molecule-design-stage-src/`](molecule-design-stage-src/) package with reusable entrypoint, modular workflow code, tests, and preserved Gemini handoff artifact.
-- **2026-05-10** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) Initial public repo packaging: main skill, optional literature helper, installer, bilingual documentation, and GitHub-ready repo structure.
+- **2026-05-31** — v0.2.0: complete redesign. Modular reference files, dual literature streams, Gemini adversarial reviewer, novelty gate, result-to-claim audit. See [CHANGELOG.md](CHANGELOG.md).
+- **2026-05-19** — v0.1.3: polymer-design scope and share-package notes.
+- **2026-05-12** — v0.1.1: sanitized [`molecule-design-stage-src/`](molecule-design-stage-src/) package.
+- **2026-05-10** — v0.1.0: initial public release.
 
 ## What the skill does
 
-- Reads a Markdown design brief with hard constraints, soft preferences, and xTB proxy targets
-- Supports both small-molecule candidate rounds and polymer-design workflows built around interpretable monomer, headgroup, or motif changes
-- Builds a literature packet from local context plus recent papers
-- Proposes interpretable SMILES candidates instead of novelty-only free-form generations
-- Applies deterministic RDKit checks for validity, descriptors, alerts, and scaffold diversity
-- Renders an HTML candidate gallery for human review before any xTB run
-- Requires explicit user approval before xTB starts
-- Uses Gemini to score candidates against the locked design brief after evidence is collected
+**Literature intelligence**: Zotero personal library (Steps 1.5-A) and active field search (Step 1.5-B) run in parallel. Both are mandatory. `LIT_PACKET.md` merges the two streams; contradictions are flagged, not silently resolved.
+
+**Candidate generation**: Every proposal must trace to a scaffold, SAR rule, or design principle from `LIT_PACKET.md`. Unsourced exploratory candidates are capped at 10% of each round.
+
+**Adversarial review** (Step 3.5): Gemini reads the raw candidate CSV with a chemistry-skeptic prompt before RDKit filtering. Challenges each candidate's design logic, synthesis plausibility, and expected proxy effect. Claude does not review its own candidates.
+
+**Deterministic triage** (Step 4): RDKit validity, MW/logP/TPSA, PAINS/Brenk alerts, Murcko scaffold deduplication. Synthesis feasibility gate (Step 5) requires a plausible make/buy route before gallery promotion.
+
+**Novelty check** (Step 5.5): `prior_art_search` flags already-reported structures before the visual gallery. `known` candidates are automatically demoted to control role.
+
+**Human-in-the-loop** (Step 6–7): RDKit-rendered HTML gallery with structure depictions, filter decisions, and design rationale. Explicit user approval required before any xTB run.
+
+**Result-to-claim audit** (Step 9.5): After xTB, Gemini maps each computed number to exactly what it proves and what it cannot prove. `overclaim` flag blocks a score ≥ 4 in Step 11.
+
+**Iterative scoring** (Step 11): Gemini reads design spec + adversarial review + novelty check + claim audit in a fresh thread. Pareto ranking across hard-constraint pass, synthesis feasibility, evidence level, and soft preferences.
+
+Both small-molecule and polymer/material design are supported. Polymer candidates use finite capped oligomers for RDKit/xTB; polymer-level properties that cannot be inferred from surrogates are listed as non-xTB targets.
 
 ## Workflow
 
 ```text
 design_spec.md
-→ DESIGN_SPEC_LOCKED.md
-→ LIT_PACKET.md
+→ [Zotero extraction (1.5-A) || active search (1.5-B)]  ← parallel
+→ LIT_PACKET.md (merged)
 → ROUND_N_CANDIDATES.csv
-→ ROUND_N_FILTERED.csv
+→ ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md              ← Step 3.5
+→ ROUND_N_FILTERED.csv (RDKit)
+→ ROUND_N_SYNTHESIS_FEASIBILITY.csv
+→ ROUND_N_NOVELTY_CHECK.md                           ← Step 5.5
 → ROUND_N_CANDIDATE_GALLERY.html
-→ user approval checkpoint
+→ user approval checkpoint                           ← mandatory
 → ROUND_N_XTB_RESULTS.csv
-→ ROUND_N_DECISION.md
-→ next round or final DESIGN_REPORT.md
+→ ROUND_N_CLAIM_AUDIT.md                             ← Step 9.5
+→ ROUND_N_DECISION.md (Gemini + Pareto)
+→ next round or DESIGN_REPORT.md
 ```
 
 ## Quick Start
