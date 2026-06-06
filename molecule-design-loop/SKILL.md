@@ -7,7 +7,7 @@ description: "Autonomous small-molecule or polymer/materials design loop with du
 
 Use this skill when the user provides a molecule design constraint file and wants an autonomous loop:
 
-`design_spec.md -> mode selection -> [Zotero extraction || active literature search] -> unified LIT_PACKET -> candidates -> RDKit filtering -> synthesis-feasibility gate -> HTML gallery -> user structural approval -> optional xTB evidence -> optional experimental feedback -> Gemini/Pareto decision -> next design round`
+`[optional image extraction] -> design_spec.md -> mode selection -> [Zotero extraction || active literature search] -> unified LIT_PACKET -> candidates -> RDKit filtering -> synthesis-feasibility gate -> HTML gallery -> user structural approval -> optional xTB evidence -> optional NMR prediction/verification -> optional experimental feedback -> Gemini/Pareto decision -> next design round`
 
 **Dual literature philosophy**: Design knowledge comes from two complementary and equally important streams that run in parallel:
 
@@ -49,6 +49,7 @@ Primary inputs:
 
 Optional inputs:
 - seed SMILES or ChemDraw-selected SMILES;
+- **structure images** (PNG/JPG/PDF of journal figures, ChemDraw screenshots, or hand-drawn structures) — Claude extracts SMILES directly from the image; see [references/structure-image-input-protocol.md](references/structure-image-input-protocol.md);
 - Zotero collection name or tags to restrict library search scope;
 - local PDFs or notes not yet in Zotero;
 - prior design logs;
@@ -80,7 +81,10 @@ All outputs go in `molecule-design-stage/`:
 - `ROUND_N_POLYMER_DESIGN.html` (polymer/material runs)
 - `ROUND_N_XTB_APPROVAL.md`
 - `ROUND_N_XTB_RESULTS.csv`
+- `ROUND_N_NMR_PREDICTIONS.csv` (when NMR prediction is requested or experimental NMR is available)
+- `ROUND_N_NMR_VERIFICATION.md` (when experimental NMR data is compared against predictions)
 - `ROUND_N_EXPERIMENT_RESULTS.csv` (when user provides experimental feedback)
+- `IMAGE_EXTRACTED_SMILES.csv` (when structure images are provided as input)
 - `ROUND_N_GEMINI_INPUT.md`
 - `ROUND_N_DECISION.md`
 - `DESIGN_LOOP_STATE.json`
@@ -118,6 +122,12 @@ When a new helper program is needed:
 - **SYNTHESIS_GATE_FOR_PROMOTION = `route_plausible_or_make_on_demand`**
 - **EXPERIMENTAL_FEEDBACK_REQUIRED = false unless previous wet-lab results are provided**
 - **STOP_IF_NO_NEW_FEASIBLE_MOTIF = true**
+- **NMR_PREDICTION = `optional; auto-enabled when experimental NMR data is provided`**
+- **NMR_VALIDATED_SOLVENTS = `CDCl3, DMSO-d6, D2O`**
+- **NMR_1H_TOLERANCE = `±0.20 ppm`**
+- **NMR_13C_TOLERANCE = `±2.0 ppm`**
+- **IMAGE_INPUT = optional** — Claude extracts SMILES from structure images (journal figures, ChemDraw screenshots, hand-drawn sketches)
+- **IMAGE_LOW_CONFIDENCE_REQUIRES_CONFIRMATION = true**
 - **CHEMDRAW_ROLE = optional visualization/input terminal**
 - **ZOTERO_TRACE_REQUIRED = true** — every generated candidate must reference the Zotero paper(s) that motivated it
 - **GEMINI_REVIEW_MODEL = `gemini-2.5-flash`** — default for all `mcp__gemini-review__*` calls
@@ -128,6 +138,18 @@ When a new helper program is needed:
 ---
 
 ## Workflow
+
+### 0.5. Extract structures from images (when provided)
+
+If the user provides structure images (journal figures, ChemDraw screenshots, hand-drawn sketches) instead of or alongside SMILES:
+
+1. Read each image with the `Read` tool.
+2. Extract molecular structures as canonical SMILES; validate each with RDKit.
+3. Write `molecule-design-stage/IMAGE_EXTRACTED_SMILES.csv`.
+4. Low-confidence extractions (`extraction_confidence: low`) require user confirmation before proceeding.
+5. Confirmed structures feed into `seed_scaffolds` in Step 1.
+
+For full extraction procedure, validation rules, and CSV schema, see [references/structure-image-input-protocol.md](references/structure-image-input-protocol.md).
 
 ### 1. Lock the design spec
 
@@ -171,7 +193,7 @@ Merge `ZOTERO_KNOWLEDGE_PACKET.md` and `ACTIVE_SEARCH_PACKET.md` into `LIT_PACKE
 
 Generate 20-50 candidates in `ROUND_N_CANDIDATES.csv`. Every candidate must trace to at least one source in `LIT_PACKET.md`. Bounded-exploratory candidates (`zotero_grounding: none`) capped at 10%.
 
-For full column schema, bucket rules, and polymer-specific fields, see [references/candidate-generation-schema.md](references/candidate-generation-schema.md).
+For full column schema, bucket rules, and polymer-specific fields, see [references/candidate_schema.md](references/candidate_schema.md).
 
 ### 3.5. Gemini adversarial chemistry review
 
@@ -260,6 +282,20 @@ Outputs `ROUND_N_CLAIM_AUDIT.md` with an evidence-to-claim matrix and `auditor_f
 
 For full Gemini prompt and output format, see [references/claim-audit-protocol.md](references/claim-audit-protocol.md).
 
+### 9.7. NMR prediction and verification (optional)
+
+**When to run:** when the design spec sets `nmr_prediction: yes`, when the user provides experimental NMR data, or for candidates approaching synthesis recommendation (Gemini score ≥ 4 or Pareto top-3).
+
+Claude predicts 1H and 13C NMR chemical shifts, multiplicities, and coupling constants for selected candidates. No external tool required — this uses Claude's internal chemistry knowledge (validated at ±0.079 ppm for 1H, ±1.37 ppm for 13C per Anthropic benchmarks).
+
+Outputs `ROUND_N_NMR_PREDICTIONS.csv`. When experimental NMR data is available, also outputs `ROUND_N_NMR_VERIFICATION.md` with a peak-by-peak predicted-vs-experimental comparison and a `verification_status` per candidate (`confirmed` / `consistent` / `inconclusive` / `mismatch`).
+
+A `mismatch` status triggers mandatory structural review — the synthesized compound may be a regioisomer, tautomer, or side product.
+
+NMR predictions are a plausibility check, not a replacement for experimental characterization. Always label as "Claude-predicted" and state the expected error range. The claim audit (Step 9.5) scope extends to NMR predictions.
+
+For full protocol, output schemas, matching thresholds, and scope limitations, see [references/nmr-prediction-protocol.md](references/nmr-prediction-protocol.md).
+
 ### 10. Ingest experimental feedback when available
 
 Normalize user-provided results into `ROUND_N_EXPERIMENT_RESULTS.csv` before scoring.
@@ -299,7 +335,7 @@ Stop when one of these happens:
 - xTB is unavailable and the user needs to configure the compute backend;
 - `MAX_ROUNDS` is reached.
 
-Write `DESIGN_REPORT.md` with: top candidates and SMILES, why they satisfy the design file, synthesis-feasibility summary, experimental feedback summary, xTB proxy summary, Gemini constraint scoring and Pareto rank, risks and what not to claim, recommended next experiment or higher-level calculation, and for polymers: oligomer-length sensitivity, conformer sampling, MD/CG simulation, polymerization feasibility check, or experimental characterization plan.
+Write `DESIGN_REPORT.md` with: top candidates and SMILES, why they satisfy the design file, synthesis-feasibility summary, experimental feedback summary, xTB proxy summary, NMR prediction/verification summary (if run), Gemini constraint scoring and Pareto rank, risks and what not to claim, recommended next experiment or higher-level calculation, and for polymers: oligomer-length sensitivity, conformer sampling, MD/CG simulation, polymerization feasibility check, or experimental characterization plan.
 
 ---
 

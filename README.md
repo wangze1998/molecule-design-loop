@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.0-blue)
+![Status](https://img.shields.io/badge/status-v0.2.1-blue)
 
-Open Codex skill for constraint-driven molecule and polymer design. Integrates the user's Zotero library and local Gemini MCP for dual-stream literature intelligence, adversarial chemistry review, novelty checking, and result-to-claim auditing — alongside RDKit filtering, visual candidate review, and explicit user approval before xTB.
+Open Codex skill for constraint-driven molecule and polymer design. Integrates the user's Zotero library and local Gemini MCP for dual-stream literature intelligence, adversarial chemistry review, novelty checking, and result-to-claim auditing — alongside RDKit filtering, visual candidate review, and explicit user approval before xTB. Now supports structure image input and Claude-native NMR prediction.
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Current release: v0.2.0** (2026-05-31). Major workflow upgrade: Zotero personal library + active search now run as parallel literature streams; Gemini adversarial reviewer challenges every candidate batch; a novelty check catches already-reported structures; and a result-to-claim audit gates scoring so computational evidence cannot outrun design conclusions.
+> **Current release: v0.2.1** (2026-06-06). New: structure image input (Step 0.5) and NMR prediction/verification (Step 9.7), inspired by Anthropic's "Making Claude a Chemist" research. Users can now seed designs from journal figures or hand-drawn sketches, and get Claude-native NMR plausibility checks on top candidates.
 > **Human approval stays mandatory before xTB.** **Zotero MCP and Gemini MCP must be configured** for the new steps — the skill falls back gracefully when they are unavailable.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -17,12 +17,14 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release: `v0.2.0` — complete redesign
+- Current release: `v0.2.1` — structure image input + NMR prediction
 - Repo focus: modular Codex skill for Zotero-grounded, adversarially reviewed molecular design
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## Release Track
+
+**v0.2.1** (2026-06-06) — Structure image input (Step 0.5) and NMR prediction/verification (Step 9.7). Duplicate `candidate-generation-schema.md` merged into `candidate_schema.md`. AGENT_GUIDE and README updated.
 
 **v0.2.0** (2026-05-31) — Complete redesign. SKILL.md restructured from 1041 → 360 lines; ten protocol reference files extracted. Dual Zotero + active-search literature streams. Three new mandatory gates: adversarial chemistry review (Step 3.5), novelty check (Step 5.5), result-to-claim audit (Step 9.5). Gemini and Zotero MCPs are now named first-class roles.
 
@@ -46,12 +48,15 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
-- **2026-05-31** — v0.2.0: complete redesign. Modular reference files, dual literature streams, Gemini adversarial reviewer, novelty gate, result-to-claim audit. See [CHANGELOG.md](CHANGELOG.md).
+- **2026-06-06** — v0.2.1: structure image input and NMR prediction/verification. Schema files consolidated. See [CHANGELOG.md](CHANGELOG.md).
+- **2026-05-31** — v0.2.0: complete redesign. Modular reference files, dual literature streams, Gemini adversarial reviewer, novelty gate, result-to-claim audit.
 - **2026-05-19** — v0.1.3: polymer-design scope and share-package notes.
 - **2026-05-12** — v0.1.1: sanitized [`molecule-design-stage-src/`](molecule-design-stage-src/) package.
 - **2026-05-10** — v0.1.0: initial public release.
 
 ## What the skill does
+
+**Structure image input** (Step 0.5): Users can provide journal figures, ChemDraw screenshots, or hand-drawn sketches instead of typing SMILES. Claude extracts structures directly from images, validates with RDKit, and feeds confirmed seeds into the design spec.
 
 **Literature intelligence**: Zotero personal library (Steps 1.5-A) and active field search (Step 1.5-B) run in parallel. Both are mandatory. `LIT_PACKET.md` merges the two streams; contradictions are flagged, not silently resolved.
 
@@ -67,14 +72,17 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 **Result-to-claim audit** (Step 9.5): After xTB, Gemini maps each computed number to exactly what it proves and what it cannot prove. `overclaim` flag blocks a score ≥ 4 in Step 11.
 
-**Iterative scoring** (Step 11): Gemini reads design spec + adversarial review + novelty check + claim audit in a fresh thread. Pareto ranking across hard-constraint pass, synthesis feasibility, evidence level, and soft preferences.
+**NMR prediction and verification** (Step 9.7, optional): Claude predicts 1H/13C NMR spectra for top candidates using its internal chemistry knowledge. When experimental NMR data is available, a predicted-vs-experimental comparison produces a structural verification status. Based on Anthropic's "Making Claude a Chemist" research (±0.079 ppm 1H accuracy).
+
+**Iterative scoring** (Step 11): Gemini reads design spec + adversarial review + novelty check + claim audit + NMR verification in a fresh thread. Pareto ranking across hard-constraint pass, synthesis feasibility, evidence level, and soft preferences.
 
 Both small-molecule and polymer/material design are supported. Polymer candidates use finite capped oligomers for RDKit/xTB; polymer-level properties that cannot be inferred from surrogates are listed as non-xTB targets.
 
 ## Workflow
 
 ```text
-design_spec.md
+[structure images → IMAGE_EXTRACTED_SMILES.csv]       ← Step 0.5 (optional)
+→ design_spec.md
 → [Zotero extraction (1.5-A) || active search (1.5-B)]  ← parallel
 → LIT_PACKET.md (merged)
 → ROUND_N_CANDIDATES.csv
@@ -86,6 +94,7 @@ design_spec.md
 → user approval checkpoint                           ← mandatory
 → ROUND_N_XTB_RESULTS.csv
 → ROUND_N_CLAIM_AUDIT.md                             ← Step 9.5
+→ ROUND_N_NMR_PREDICTIONS.csv                       ← Step 9.7 (optional)
 → ROUND_N_DECISION.md (Gemini + Pareto)
 → next round or DESIGN_REPORT.md
 ```
@@ -155,7 +164,10 @@ Bundled helpers inside `molecule-design-loop/`:
 
 - `scripts/rdkit_filter_candidates.py`
 - `scripts/render_candidate_gallery.py`
-- `references/candidate_schema.md`
+- `references/candidate_schema.md` — CSV contracts + generation rules
+- `references/structure-image-input-protocol.md` — Step 0.5
+- `references/nmr-prediction-protocol.md` — Step 9.7
+- 10 additional protocol files in `references/` (see [AGENT_GUIDE.md](AGENT_GUIDE.md))
 - `templates/design_spec_template.md`
 - `templates/xtb_approval_template.md`
 

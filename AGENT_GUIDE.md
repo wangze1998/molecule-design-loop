@@ -5,15 +5,23 @@
 `molecule-design-loop` is a Codex skill for constraint-driven molecular design. It turns a Markdown design brief into a reviewable candidate loop:
 
 ```text
-design_spec.md
-→ literature packet
-→ candidate SMILES
-→ deterministic RDKit filtering
-→ HTML structure gallery
-→ explicit user approval
-→ xTB evidence
-→ Gemini constraint scoring
-→ next round or final report
+[optional image extraction (0.5)]
+→ design_spec.md
+→ [Zotero extraction (1.5-A) || active search (1.5-B)]  ← parallel
+→ LIT_PACKET.md (merged)
+→ ROUND_N_CANDIDATES.csv
+→ ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md              ← Step 3.5
+→ ROUND_N_FILTERED.csv (RDKit)
+→ ROUND_N_SYNTHESIS_FEASIBILITY.csv
+→ ROUND_N_NOVELTY_CHECK.md                           ← Step 5.5
+→ ROUND_N_CANDIDATE_GALLERY.html
+→ user approval checkpoint                           ← mandatory
+→ ROUND_N_XTB_RESULTS.csv
+→ ROUND_N_CLAIM_AUDIT.md                             ← Step 9.5
+→ ROUND_N_NMR_PREDICTIONS.csv (optional)             ← Step 9.7
+→ ROUND_N_NMR_VERIFICATION.md (when exp. data)       ← Step 9.7
+→ ROUND_N_DECISION.md (Gemini + Pareto)
+→ next round or DESIGN_REPORT.md
 ```
 
 ## Invocation
@@ -52,21 +60,49 @@ Do not use it when the user wants xTB alone, docking alone, or unconstrained nov
 - `molecule-design-loop/SKILL.md` — main specification
 - `molecule-design-loop/scripts/rdkit_filter_candidates.py` — filter and annotate candidate CSV files
 - `molecule-design-loop/scripts/render_candidate_gallery.py` — render HTML gallery from filtered CSV
-- `molecule-design-loop/references/candidate_schema.md` — candidate CSV contract
+- `molecule-design-loop/references/candidate_schema.md` — candidate CSV contract + generation rules
 - `molecule-design-loop/templates/design_spec_template.md` — design brief template
 - `molecule-design-loop/templates/xtb_approval_template.md` — mandatory approval checkpoint template
+
+Reference protocols in `molecule-design-loop/references/`:
+
+| File | Step |
+|---|---|
+| `zotero-extraction-protocol.md` | 1.5-A — Zotero library mining |
+| `active-search-protocol.md` | 1.5-B — latest + landmark papers |
+| `candidate_schema.md` | 3 — CSV contracts, bucket rules, generation rules |
+| `adversarial-review-protocol.md` | 3.5 — Gemini adversarial review |
+| `synthesis-gate-schema.md` | 5 — synthesis feasibility gate |
+| `novelty-check-protocol.md` | 5.5 — prior-art search |
+| `structure-image-input-protocol.md` | 0.5 — extracting SMILES from images |
+| `nmr-prediction-protocol.md` | 9.7 — NMR prediction and verification |
+| `claim-audit-protocol.md` | 9.5 — evidence-to-claim matrix |
+| `gemini-scoring-protocol.md` | 11 — scoring rubric, Pareto ranking |
+| `polymer-design-mode.md` | polymer/material branch |
+| `xtb-integrity-rules.md` | xTB recording requirements |
 
 ## Output Contract
 
 Prefer a project-local `molecule-design-stage/` directory with:
 
 - `DESIGN_SPEC_LOCKED.md`
+- `IMAGE_EXTRACTED_SMILES.csv` (when structure images provided)
+- `ZOTERO_KNOWLEDGE_PACKET.md`
+- `ZOTERO_SEED_SMILES.csv`
+- `ACTIVE_SEARCH_PACKET.md`
 - `LIT_PACKET.md`
 - `ROUND_N_CANDIDATES.csv`
+- `ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md`
 - `ROUND_N_FILTERED.csv`
+- `ROUND_N_SYNTHESIS_FEASIBILITY.csv`
+- `ROUND_N_NOVELTY_CHECK.md`
 - `ROUND_N_CANDIDATE_GALLERY.html`
 - `ROUND_N_XTB_APPROVAL.md`
 - `ROUND_N_XTB_RESULTS.csv`
+- `ROUND_N_CLAIM_AUDIT.md`
+- `ROUND_N_NMR_PREDICTIONS.csv` (optional)
+- `ROUND_N_NMR_VERIFICATION.md` (optional)
+- `ROUND_N_EXPERIMENT_RESULTS.csv` (when feedback available)
 - `ROUND_N_GEMINI_INPUT.md`
 - `ROUND_N_DECISION.md`
 - `DESIGN_LOOP_STATE.json`
@@ -75,16 +111,23 @@ Prefer a project-local `molecule-design-stage/` directory with:
 
 ## Execution Checklist
 
-1. Lock the design brief into `DESIGN_SPEC_LOCKED.md`.
-2. Separate hard constraints, soft preferences, forbidden motifs, and xTB proxy targets.
-3. Build a small literature packet from local context plus recent papers.
-4. Generate interpretable SMILES candidates tied to specific constraints.
-5. Run deterministic RDKit filtering and keep rejection reasons.
-6. Render `ROUND_N_CANDIDATE_GALLERY.html`.
-7. Pause for explicit user approval before any xTB run.
-8. Run xTB only on approved candidates.
-9. Write `ROUND_N_GEMINI_INPUT.md` and ask Gemini to score candidates against the locked brief using xTB as supporting evidence.
-10. Either iterate or write the final report.
+1. Extract structures from user-provided images if any (Step 0.5).
+2. Lock the design brief into `DESIGN_SPEC_LOCKED.md`.
+3. Run Zotero extraction (1.5-A) and active search (1.5-B) in parallel.
+4. Merge into `LIT_PACKET.md`; flag contradictions.
+5. Generate interpretable SMILES candidates tied to specific constraints.
+6. Run Gemini adversarial review (Step 3.5) on raw candidates.
+7. Run deterministic RDKit filtering and keep rejection reasons.
+8. Run synthesis-feasibility gate (Step 5).
+9. Run novelty check (Step 5.5).
+10. Render `ROUND_N_CANDIDATE_GALLERY.html`.
+11. Pause for explicit user approval before any xTB run.
+12. Run xTB only on approved candidates.
+13. Run result-to-claim audit (Step 9.5).
+14. Run NMR prediction/verification if requested (Step 9.7).
+15. Ingest experimental feedback if available.
+16. Score with Gemini + Pareto ranking.
+17. Either iterate or write the final report.
 
 ## Hard Guardrails
 
@@ -93,6 +136,8 @@ Prefer a project-local `molecule-design-stage/` directory with:
 - Do not collapse all candidates into near-duplicate variants.
 - Do not discard rejected candidates silently; keep the rejection reason for later refinement.
 - If a hard constraint is ambiguous, stop and ask a targeted question before expensive calculations.
+- NMR predictions are Claude-native plausibility checks, not validated computational methods. Always label as "Claude-predicted."
+- Structure image extractions with low confidence require user confirmation before proceeding.
 
 ## Local Validation
 

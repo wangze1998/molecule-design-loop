@@ -26,13 +26,20 @@ The skill will search your Zotero library first and extract design knowledge aut
 
 State the design hypothesis in one or two sentences.
 
+## Structure Image Input
+
+Provide structure images (journal figures, ChemDraw screenshots, hand-drawn sketches) as an alternative to typing SMILES. Claude will extract structures directly from images.
+
+- Structure image files: (paths to PNG/JPG/PDF files, or leave blank)
+- Require user confirmation for extracted SMILES: yes (default for low-confidence) / always / no
+
 ## Seed Structures
 
-These will be auto-populated from your Zotero library after extraction. You can also add or override them manually.
+These will be auto-populated from your Zotero library after extraction and/or from structure image input. You can also add or override them manually.
 
-| name | SMILES | role | keep / modify / avoid | zotero_source |
+| name | SMILES | role | keep / modify / avoid | source |
 |---|---|---|---|---|
-| seed_1 |  |  |  |  |
+| seed_1 |  |  |  | zotero / image / manual |
 
 ## Small-Molecule Design Mode
 
@@ -193,6 +200,13 @@ Examples:
 - reaction yield;
 - photochemical quantum yield;
 - selectivity in solution.
+
+## NMR Prediction and Verification
+
+- NMR prediction: yes / no (default: no; auto-enabled when experimental NMR data is provided)
+- NMR solvent assumption: CDCl3 / DMSO-d6 / D2O / other
+- Experimental NMR data file: (path to experimental NMR peak list, or leave blank)
+- NMR verification threshold for structural confidence: confirmed / consistent (default: consistent)
 
 ## Iteration Budget
 
