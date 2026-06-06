@@ -13,12 +13,14 @@
 
 ## 已对照本地源目录核对
 
-核对日期：`2026-05-19`
+核对日期：`2026-06-06`（v0.2.1）
 
 - 仓库中的 `molecule-design-loop/SKILL.md` 与本地主源文件一致
+- `molecule-design-loop/references/` — 全部 12 个协议文件已同步（含新增 `structure-image-input-protocol.md` 和 `nmr-prediction-protocol.md`；`candidate-generation-schema.md` 已合并至 `candidate_schema.md`）
+- `molecule-design-loop/templates/design_spec_template.md` 已同步（含新增图像输入和 NMR 配置节）
 - 仓库中的 `examples/example_design_spec.md` 与本地示例文件一致
 - `optional-skills/research-lit/SKILL.md` 与本地 `related-skills/research-lit.SKILL.md` 的内容一致
-- 公开安装脚本保留了更新后的目录式 `--install-research-lit` 安装逻辑，没有退回旧的单文件快照方式
+- 公开安装脚本保留了更新后的目录式 `--install-research-lit` 安装逻辑
 
 ## 保留在本地、不进入公开包的内容
 

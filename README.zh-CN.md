@@ -2,78 +2,101 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.1.3-blue)
+![Status](https://img.shields.io/badge/status-v0.2.1-blue)
 
-一个面向 Codex 的开源分子与聚合物设计 skill，强调约束驱动设计、确定性的 RDKit 过滤、候选结构可视化审阅、xTB 前必须人工确认，以及 Gemini 引导的迭代优化。
+一个面向 Codex 的开源分子与聚合物设计 skill，强调约束驱动设计。集成用户 Zotero 文献库和 Gemini MCP 实现双流文献智能、对抗性化学审查、新颖性检查和结果→结论审计。现支持结构图像输入和 Claude 原生 NMR 预测。
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md) | [分享包说明](SHARE_PACKAGE.zh-CN.md)
 
-> **Molecule Design Loop v0.1.0 → v0.1.3**（2026-05）—— 四步公开包装更新序列。**v0.1.3** 这次重新核对了 GitHub 仓库与当前本地主 skill 源目录的一致性，明确了哪些内容公开打包、哪些内容只保留在本地，并且把“聚合物设计”这一公开定位正式写进了文档和更新日志。**v0.1.2** 补上了更清晰的 GitHub 发布说明和仓库更新展示。**v0.1.1** 发布了脱敏后的 `molecule-design-stage-src/` 源码包。**v0.1.0** 则完成了主 skill、双语文档、安装脚本和可选文献配套 skill 的首次公开发布。
-> **xTB 前的人类审批仍然是强制的。** **Gemini 交接入口也保留为一等产物**：`ROUND_N_GEMINI_INPUT.md`。
+> **当前版本：v0.2.1**（2026-06-06）。新增：结构图像输入（步骤 0.5）和 NMR 预测/验证（步骤 9.7），灵感来自 Anthropic "Making Claude a Chemist" 研究。用户现在可以从文献图片或手绘草图直接导入种子结构，并对候选分子进行 Claude 原生 NMR 合理性检查。
+> **xTB 前的人类审批仍然是强制的。** **Zotero MCP 和 Gemini MCP 需要配置**才能使用新步骤——不可用时工作流优雅降级。
 
-如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。这份文档是给模型读的，不是给人类快速浏览的。
+如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。
 
-> 这是一个“先约束、后计算”的分子设计工作流：先过滤明显不合理结构，再人工看图确认，最后再让 xTB 提供证据，而不是替你做最终科学判断。
+> 这是一个"先约束、后计算"的分子设计工作流：先过滤明显不合理结构，再人工看图确认，最后再让 xTB 提供证据，而不是替你做最终科学判断。
 
 ## 当前状态
 
-- 当前发布线：`v0.1.3`
-- 仓库定位：可直接发布的 Codex skill，加上辅助脚本与模板
+- 当前发布：`v0.2.1` — 结构图像输入 + NMR 预测
+- 仓库定位：模块化 Codex skill，Zotero 驱动、对抗性审查的分子设计
 - 更新记录：[CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - 分享包范围说明：[SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
-- 最近一次面向 GitHub 的更新：重新核对了本地源目录同步状态，并补上了更清晰的打包范围说明
 
 ## 版本轨迹
 
-**v0.1.3**（2026-05-19）—— 本地源目录同步核对刷新。重新检查了公开仓库与当前本地 `molecule-design-loop/`、`examples/` 以及可选 `research-lit` 副本的一致性，并把公开打包范围和本地保留内容写清楚。这一版也把“聚合物设计”的定位明确写进了公开更新说明。
+**v0.2.1**（2026-06-06）— 结构图像输入（步骤 0.5）和 NMR 预测/验证（步骤 9.7）。重复的 `candidate-generation-schema.md` 合并至 `candidate_schema.md`。AGENT_GUIDE 和 README 同步更新。
 
-**v0.1.2**（2026-05-18）—— 仓库发布展示刷新。README 改成更清晰的版本链路和更新说明形式，并补了更清晰的公开更新日志。这一版没有改工作流逻辑。
+**v0.2.0**（2026-05-31）— 完整重构。SKILL.md 从 1041 行精简至 360 行，提取十个协议 reference 文件。双流 Zotero + 主动搜索文献。三个新强制门控：对抗性化学审查（步骤 3.5）、新颖性检查（步骤 5.5）、结果→结论审计（步骤 9.5）。Gemini 和 Zotero MCP 成为一等角色。
 
-**v0.1.1**（2026-05-12）—— 发布脱敏后的阶段入口源码包。新增 `molecule-design-stage-src/`、可复用 `run_design.py`、模块化 `molecular_design/`、示例配置、测试，并把 `ROUND_N_GEMINI_INPUT.md` 正式纳入 Gemini 交接产物。
+**v0.1.3**（2026-05-19）— 聚合物设计文档和分享包说明。
 
-**v0.1.0**（2026-05-10）—— 首次公开开源包装。发布主 Codex skill、可选 `research-lit` 配套 skill、双语 README、安装脚本、贡献文档和 GitHub 展示结构。
+**v0.1.2**（2026-05-18）— 仓库展示刷新，无工作流变化。
+
+**v0.1.1**（2026-05-12）— 脱敏后阶段入口源码包（`molecule-design-stage-src/`）。
+
+**v0.1.0**（2026-05-10）— 首次公开开源包装。
 
 ## 这个仓库解决什么问题
 
-很多“LLM 做分子设计”的流程有几个常见问题：
+很多"LLM 做分子设计"的流程有几个常见问题：
 
-- 会生成很多分子，但设计逻辑不清楚，不方便审阅
-- 在明显结构问题还没排除前，就过早进入廉价量化筛选
-- 把计算结果误当成最终结论，而不是辅助证据
+- 生成分子时不锚定领域已知的骨架和 SAR
+- 让同一个模型既设计候选又评分——没有对抗性审查
+- 把 xTB 数值直接推入设计结论，没有审计这些数值到底能证明什么
 
-`molecule-design-loop` 的定位，就是把这些环节变得更可控、更可解释。
+`molecule-design-loop` 就是针对这些失败模式的结构化循环。
 
 ## 最近更新
 
-- **2026-05-19** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 按当前本地主 skill 源目录重新核对了 GitHub 仓库内容，新增分享包范围说明，明确 `related-skills/` 下的本地上下文辅助 skill 不属于公开打包内容，并把“聚合物设计”这一定位明确写进了公开更新日志。
-- **2026-05-18** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) README 改成更清晰的发布/更新说明形式，补上版本链路、版本轨迹和公开更新日志入口。
-- **2026-05-12** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 新增脱敏后的 [`molecule-design-stage-src/`](molecule-design-stage-src/) 源码包，包含可复用主入口、模块化流程代码、测试，以及保留的 Gemini 交接产物。
-- **2026-05-10** — ![NEW](https://img.shields.io/badge/NEW-red?style=flat-square) 完成首次公开仓库包装：主 skill、可选文献辅助、安装脚本、双语文档和 GitHub 展示结构。
+- **2026-06-06** — v0.2.1：结构图像输入和 NMR 预测/验证。Schema 文件整合。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+- **2026-05-31** — v0.2.0：完整重构。模块化 reference 文件，双流文献，Gemini 对抗审查，新颖性门控，结果→结论审计。
+- **2026-05-19** — v0.1.3：聚合物设计范围和分享包说明。
+- **2026-05-12** — v0.1.1：脱敏后 [`molecule-design-stage-src/`](molecule-design-stage-src/) 源码包。
+- **2026-05-10** — v0.1.0：首次公开发布。
 
 ## 这个 skill 会做什么
 
-- 读取 Markdown 设计规范，解析硬约束、软偏好和 xTB 可测试代理指标
-- 同时支持小分子候选轮次，以及围绕单体、头基或结构 motif 调整的聚合物设计工作流
-- 结合本地上下文与近期文献生成文献资料包
-- 生成可解释的 SMILES 候选，而不是只追求“新颖”
-- 用 RDKit 做有效性、描述符、警示片段和骨架多样性过滤
-- 在任何 xTB 运行前先生成 HTML 候选画廊供人工审阅
-- 强制用户显式批准后才进入 xTB
-- 在收集到证据后，再让 Gemini 按锁定设计规范做结构化打分
+**结构图像输入**（步骤 0.5）：用户可以直接提供文献截图、ChemDraw 图片或手绘结构草图，Claude 自动从图像中提取 SMILES，经 RDKit 验证后作为种子结构输入设计规范。
+
+**文献智能**：Zotero 个人文献库（步骤 1.5-A）和主动领域搜索（步骤 1.5-B）并行运行，两流均为必跑。`LIT_PACKET.md` 合并两流，矛盾之处显式标记。
+
+**候选生成**：每个候选必须追溯到 `LIT_PACKET.md` 中的骨架、SAR 规律或设计原则。无来源探索性候选上限 10%。
+
+**对抗性审查**（步骤 3.5）：Gemini 以化学挑剔者视角读取原始候选 CSV，在 RDKit 过滤前审查每个候选的设计逻辑、合成可行性和预期代理效果。Claude 不自我审查。
+
+**确定性筛选**（步骤 4）：RDKit 有效性、MW/logP/TPSA、PAINS/Brenk 警示、Murcko 骨架去重。合成可行性门控（步骤 5）要求候选有合理的制备/购买路线才能晋升。
+
+**新颖性检查**（步骤 5.5）：`prior_art_search` 在可视化画廊前标记已报道结构。`known` 候选自动降级为 control。
+
+**人工审阅**（步骤 6-7）：RDKit 渲染的 HTML 画廊，含结构图、过滤决策和设计理由。xTB 前必须明确用户批准。
+
+**结果→结论审计**（步骤 9.5）：xTB 后，Gemini 为每条计算数值明确其证明范围和局限。`overclaim` 标记阻止步骤 11 打 4/5 分。
+
+**NMR 预测与验证**（步骤 9.7，可选）：Claude 使用其内部化学知识为候选分子预测 1H/13C NMR 谱。有实验 NMR 数据时，进行 predicted vs. experimental 比对并生成结构验证状态。基于 Anthropic "Making Claude a Chemist" 研究（1H 精度 ±0.079 ppm）。
+
+**迭代评分**（步骤 11）：Gemini 在新线程中读取设计规范 + 对抗审查 + 新颖性检查 + 结论审计 + NMR 验证。Pareto 排名跨越硬约束通过、合成可行性、证据水平和软偏好。
+
+同时支持小分子和聚合物/材料设计。聚合物候选使用有限封端寡聚物代理；无法从代理推断的聚合物级属性列为 non-xTB 目标。
 
 ## 工作流程
 
 ```text
-design_spec.md
-→ DESIGN_SPEC_LOCKED.md
-→ LIT_PACKET.md
+[结构图像 → IMAGE_EXTRACTED_SMILES.csv]              ← 步骤 0.5（可选）
+→ design_spec.md
+→ [Zotero 提取 (1.5-A) || 主动搜索 (1.5-B)]         ← 并行
+→ LIT_PACKET.md（合并）
 → ROUND_N_CANDIDATES.csv
-→ ROUND_N_FILTERED.csv
+→ ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md              ← 步骤 3.5
+→ ROUND_N_FILTERED.csv（RDKit）
+→ ROUND_N_SYNTHESIS_FEASIBILITY.csv
+→ ROUND_N_NOVELTY_CHECK.md                           ← 步骤 5.5
 → ROUND_N_CANDIDATE_GALLERY.html
-→ 用户审批检查点
+→ 用户审批检查点                                      ← 强制
 → ROUND_N_XTB_RESULTS.csv
-→ ROUND_N_DECISION.md
-→ 下一轮或最终 DESIGN_REPORT.md
+→ ROUND_N_CLAIM_AUDIT.md                             ← 步骤 9.5
+→ ROUND_N_NMR_PREDICTIONS.csv                        ← 步骤 9.7（可选）
+→ ROUND_N_DECISION.md（Gemini + Pareto）
+→ 下一轮或 DESIGN_REPORT.md
 ```
 
 ## 快速开始
@@ -115,11 +138,11 @@ $CODEX_HOME/skills/molecule-design-loop
 
 ## 可复用阶段入口
 
-仓库里还补了一份来自私有 `molecule-design-stage/` 工作目录的脱敏源码包：
+仓库里还有一份来自私有 `molecule-design-stage/` 工作目录的脱敏源码包：
 
 - [`molecule-design-stage-src/`](molecule-design-stage-src/)
 - 主入口：[`molecule-design-stage-src/run_design.py`](molecule-design-stage-src/run_design.py)
-- 仍然保留 Gemini 交接产物：`ROUND_N_GEMINI_INPUT.md`
+- Gemini 交接产物保留为 `ROUND_N_GEMINI_INPUT.md`
 
 示例：
 
@@ -141,7 +164,10 @@ python3 molecule-design-stage-src/run_design.py \
 
 - `scripts/rdkit_filter_candidates.py`
 - `scripts/render_candidate_gallery.py`
-- `references/candidate_schema.md`
+- `references/candidate_schema.md` — CSV 契约 + 生成规则
+- `references/structure-image-input-protocol.md` — 步骤 0.5
+- `references/nmr-prediction-protocol.md` — 步骤 9.7
+- `references/` 下另有 10 个协议文件（见 [AGENT_GUIDE.md](AGENT_GUIDE.md)）
 - `templates/design_spec_template.md`
 - `templates/xtb_approval_template.md`
 
