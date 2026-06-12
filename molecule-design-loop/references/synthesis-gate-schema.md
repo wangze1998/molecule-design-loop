@@ -20,6 +20,8 @@ Required before promoting candidates. May be evidence-only when no retrosynthesi
 - `route_steps_estimate`
 - `starting_materials_or_building_blocks`
 - `route_risk`
+- `synthesis_cost`: `low`, `medium`, `high`, or `very_high` — directly sortable estimate of total cost/effort to obtain the first sample (reagent cost + step count + difficulty). This is a first-class ranking axis in Step 11, not a footnote.
+- `time_to_first_sample`: `same_day`, `days`, `weeks`, or `months` — lead time to a usable sample, reflecting buy vs make-on-demand vs custom synthesis.
 - `synthesis_confidence`: `high`, `medium`, `low`, or `unknown`
 - `synthesis_gate_reason`
 
@@ -29,3 +31,4 @@ Required before promoting candidates. May be evidence-only when no retrosynthesi
 - Treat SA score as a weak heuristic, not a route.
 - Do not promote a candidate to final recommendation if `synthesis_gate_status = fail`.
 - Keep synthesis-warn candidates when the design hypothesis is valuable, but mark as `revise` or `needs_route_work` unless the user accepts the route risk.
+- **Make/buy preference ordering (Fix B):** at equal property fit, prefer candidates by `make_or_buy_status` in the order `buy` < `make_on_demand` < `custom_synthesis` (lower = preferred). `synthesis_cost` and `time_to_first_sample` are mandatory inputs to Step 11 Pareto ranking — a strong but expensive/slow route must not silently outrank a comparable cheap/fast one.

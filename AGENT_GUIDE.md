@@ -61,6 +61,7 @@ Do not use it when the user wants xTB alone, docking alone, or unconstrained nov
 - `molecule-design-loop/scripts/rdkit_filter_candidates.py` — filter and annotate candidate CSV files
 - `molecule-design-loop/scripts/render_candidate_gallery.py` — render HTML gallery from filtered CSV
 - `molecule-design-loop/references/candidate_schema.md` — candidate CSV contract + generation rules
+- `molecule-design-loop/references/design-loop-state-schema.md` — `DESIGN_LOOP_STATE.json` cross-round memory contract
 - `molecule-design-loop/templates/design_spec_template.md` — design brief template
 - `molecule-design-loop/templates/xtb_approval_template.md` — mandatory approval checkpoint template
 
@@ -78,6 +79,7 @@ Reference protocols in `molecule-design-loop/references/`:
 | `nmr-prediction-protocol.md` | 9.7 — NMR prediction and verification |
 | `claim-audit-protocol.md` | 9.5 — evidence-to-claim matrix |
 | `gemini-scoring-protocol.md` | 11 — scoring rubric, Pareto ranking |
+| `design-loop-state-schema.md` | 1/3/4/12 — `DESIGN_LOOP_STATE.json` cross-round memory |
 | `polymer-design-mode.md` | polymer/material branch |
 | `xtb-integrity-rules.md` | xTB recording requirements |
 
@@ -105,7 +107,7 @@ Prefer a project-local `molecule-design-stage/` directory with:
 - `ROUND_N_EXPERIMENT_RESULTS.csv` (when feedback available)
 - `ROUND_N_GEMINI_INPUT.md`
 - `ROUND_N_DECISION.md`
-- `DESIGN_LOOP_STATE.json`
+- `DESIGN_LOOP_STATE.json` (cross-round memory; schema in `references/design-loop-state-schema.md`)
 - `DESIGN_REPORT.md`
 - `xtb_jobs/`
 
@@ -115,10 +117,10 @@ Prefer a project-local `molecule-design-stage/` directory with:
 2. Lock the design brief into `DESIGN_SPEC_LOCKED.md`.
 3. Run Zotero extraction (1.5-A) and active search (1.5-B) in parallel.
 4. Merge into `LIT_PACKET.md`; flag contradictions.
-5. Generate interpretable SMILES candidates tied to specific constraints.
+5. Generate interpretable SMILES candidates tied to specific constraints. Before generating, read `DESIGN_LOOP_STATE.json` and exclude any candidate matching a `killed_motifs[]` SMARTS/scaffold (Step 3, Fix A); bias a portion toward `available_building_blocks[]` (Fix C).
 6. Run Gemini adversarial review (Step 3.5) on raw candidates.
-7. Run deterministic RDKit filtering and keep rejection reasons.
-8. Run synthesis-feasibility gate (Step 5).
+7. Run deterministic RDKit filtering with `--forbidden-smarts` = spec `forbidden_motifs` ∪ `DESIGN_LOOP_STATE.json` `killed_motifs[].smarts`; keep rejection reasons.
+8. Run synthesis-feasibility gate (Step 5), emitting sortable `synthesis_cost` and `time_to_first_sample`.
 9. Run novelty check (Step 5.5).
 10. Render `ROUND_N_CANDIDATE_GALLERY.html`.
 11. Pause for explicit user approval before any xTB run.
@@ -126,8 +128,8 @@ Prefer a project-local `molecule-design-stage/` directory with:
 13. Run result-to-claim audit (Step 9.5).
 14. Run NMR prediction/verification if requested (Step 9.7).
 15. Ingest experimental feedback if available.
-16. Score with Gemini + Pareto ranking.
-17. Either iterate or write the final report.
+16. Score with Gemini + Pareto ranking; synthesis cost / time-to-first-sample is a mandatory ranking axis (Fix B).
+17. Either iterate or write the final report. On iterate, write experimental `failure_mode` and adversarial `likely_lab_failure_mode` back into `DESIGN_LOOP_STATE.json` as structured `killed_motifs[]`/`failed_reactions[]` (Fix D).
 
 ## Hard Guardrails
 

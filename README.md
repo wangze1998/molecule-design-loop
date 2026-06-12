@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.1-blue)
+![Status](https://img.shields.io/badge/status-v0.2.2-blue)
 
 Open Codex skill for constraint-driven molecule and polymer design. Integrates the user's Zotero library and local Gemini MCP for dual-stream literature intelligence, adversarial chemistry review, novelty checking, and result-to-claim auditing — alongside RDKit filtering, visual candidate review, and explicit user approval before xTB. Now supports structure image input and Claude-native NMR prediction.
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Current release: v0.2.1** (2026-06-06). New: structure image input (Step 0.5) and NMR prediction/verification (Step 9.7), inspired by Anthropic's "Making Claude a Chemist" research. Users can now seed designs from journal figures or hand-drawn sketches, and get Claude-native NMR plausibility checks on top candidates.
+> **Current release: v0.2.2** (2026-06-12). New: cross-round failure memory is now enforced — `DESIGN_LOOP_STATE.json` has a real schema, and killed motifs are excluded automatically at generation (Step 3) and filtering (Step 4). Synthesis cost / time-to-first-sample is now a first-class Pareto axis, building-block availability biases generation, and lab failures flow back into state. See [CHANGELOG.md](CHANGELOG.md).
 > **Human approval stays mandatory before xTB.** **Zotero MCP and Gemini MCP must be configured** for the new steps — the skill falls back gracefully when they are unavailable.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -17,12 +17,14 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release: `v0.2.1` — structure image input + NMR prediction
+- Current release: `v0.2.2` — enforced cross-round failure memory + synthesis-cost ranking
 - Repo focus: modular Codex skill for Zotero-grounded, adversarially reviewed molecular design
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## Release Track
+
+**v0.2.2** (2026-06-12) — Enforced cross-round failure memory: `DESIGN_LOOP_STATE.json` schema defined, killed motifs excluded at Steps 3/4. Synthesis cost / time-to-first-sample is now a first-class Pareto axis (Step 11), building-block availability biases generation (Steps 1/3), and experimental + adversarial lab failures flow back into state (Step 12).
 
 **v0.2.1** (2026-06-06) — Structure image input (Step 0.5) and NMR prediction/verification (Step 9.7). Duplicate `candidate-generation-schema.md` merged into `candidate_schema.md`. AGENT_GUIDE and README updated.
 
@@ -48,6 +50,7 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
+- **2026-06-12** — v0.2.2: enforced cross-round failure memory (`DESIGN_LOOP_STATE.json` schema; killed motifs excluded at Steps 3/4), synthesis-cost ranking axis, availability-biased generation, and lab-failure feedback. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-06-06** — v0.2.1: structure image input and NMR prediction/verification. Schema files consolidated. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-05-31** — v0.2.0: complete redesign. Modular reference files, dual literature streams, Gemini adversarial reviewer, novelty gate, result-to-claim audit.
 - **2026-05-19** — v0.1.3: polymer-design scope and share-package notes.

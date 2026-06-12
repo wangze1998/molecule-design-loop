@@ -4,6 +4,31 @@
 
 ---
 
+## v0.2.2 — 2026-06-12
+
+闭合"决定要不要做"逻辑里两条一直开口的回路：跨轮失败记忆与合成经济性。此前这两套机制都只"记录"知识，没有任何环节强制下一轮去用它。本次发布把这些知识变成强制项。纯文档改动，不改 Python（RDKit 过滤器本就接受这里所依赖的列表型参数）。
+
+### 新增
+
+- **`references/design-loop-state-schema.md`** —— 为 `DESIGN_LOOP_STATE.json` 定义了真正的机器可读 schema。该文件在 SKILL.md / AGENT_GUIDE.md 中被引用 5 次以上，却从无定义。新 schema 规定了 `killed_motifs[]`（`smarts` 为必填）、`failed_reactions[]`、`available_building_blocks[]`、`successful_moves[]`、`scaffold_families_explored`、`evidence_gaps`、`hypotheses_to_revisit`、`experimental_endpoints`，并附最小可用 JSON 示例。
+- 合成闸门新增列 `synthesis_cost`（`low`/`medium`/`high`/`very_high`）与 `time_to_first_sample`（`same_day`/`days`/`weeks`/`months`）。
+- 候选新增列 `building_block_source`（`in_stock`/`purchasable`/`custom`/`unknown`），以及"偏向货架原料"的候选桶。
+- Gemini 打分输出新增字段 `synthesis_cost` 与 `time_to_first_sample`。
+
+### 变更 —— 四处闭合
+
+- **(A) 跨轮失败记忆变为强制。** Step 3 必须读取 `DESIGN_LOOP_STATE.json` 并排除命中 `killed_motifs[]` 的 SMARTS/母核的候选（仅在 `rationale` 中写明 rescue 假设时方可重提）。Step 4 的 `--forbidden-smarts` 必须是 spec 的 `forbidden_motifs` 与全部历史 `killed_motifs[].smarts` 的并集。这从结构上杜绝了重提已杀死结构。
+- **(B) 合成成本成为一等排序轴。** 合成闸门产出可直接排序的 `synthesis_cost`/`time_to_first_sample`；Step 11 的 Pareto 排序必须纳入它们，并加 make/buy 平手判定（`buy` < `make_on_demand` < `custom_synthesis`）。性质很好但要 8 步定制合成的分子，不再悄悄排在同等性质、2 步货架可得的分子之前。
+- **(C) 可得性前移到生成环节。** Step 1 把已知/可购买原料写入 `DESIGN_LOOP_STATE.json`；Step 3 用 `building_block_source` 标记，并把一部分候选偏向这些原料。
+- **(D) 实验失败信号回流到状态文件。** Step 12 必须把实验 `failure_mode`（来自 `ROUND_N_EXPERIMENT_RESULTS.csv`）与对抗评审 `likely_lab_failure_mode`（来自 `ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md`）结构化写回 `killed_motifs[]`/`failed_reactions[]`，使下一轮自动排除。
+
+### 说明
+
+- A 与 D 是同一根回路的两端（写下失败 → 下一轮排除）；B 与 C 在排序端（后）与生成端（前）闭合合成经济性回路。
+- 更新了 SKILL.md 的 Step 1、3、4、5、11、12；同步更新 `synthesis-gate-schema.md`、`gemini-scoring-protocol.md`、`candidate_schema.md`、`AGENT_GUIDE.md`。
+
+---
+
 ## v0.2.1 — 2026-06-06
 
 新功能灵感来自 Anthropic "Making Claude a Chemist" 研究。结构图像输入降低了设计种子的门槛；NMR 预测增加了零依赖的结构合理性检查。同时整理了重复的 schema 文件，AGENT_GUIDE 更新至当前工作流。

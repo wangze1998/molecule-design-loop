@@ -87,7 +87,7 @@ All outputs go in `molecule-design-stage/`:
 - `IMAGE_EXTRACTED_SMILES.csv` (when structure images are provided as input)
 - `ROUND_N_GEMINI_INPUT.md`
 - `ROUND_N_DECISION.md`
-- `DESIGN_LOOP_STATE.json`
+- `DESIGN_LOOP_STATE.json` — cross-round memory; structure defined in [references/design-loop-state-schema.md](references/design-loop-state-schema.md)
 - `DESIGN_REPORT.md`
 - `xtb_jobs/`
 
@@ -95,6 +95,7 @@ Bundled helpers:
 - `scripts/rdkit_filter_candidates.py` — annotates and filters candidate CSV files with RDKit descriptors
 - `scripts/render_candidate_gallery.py` — renders candidate CSV rows into a standalone RDKit HTML gallery
 - `references/candidate_schema.md` — CSV contracts
+- `references/design-loop-state-schema.md` — `DESIGN_LOOP_STATE.json` cross-round memory contract
 - `templates/design_spec_template.md` — starting constraint file template
 - `templates/xtb_approval_template.md` — approval checkpoint template before xTB
 
@@ -162,6 +163,7 @@ Read the Markdown constraint file and produce `DESIGN_SPEC_LOCKED.md`. Separate:
 - `seed_scaffolds`: preserve or modify per the design goal
 - `allowed_elements`, charge range, size range, solubility and stability limits
 - `synthesis_feasibility_constraints`: route depth, starting materials, forbidden reactions, make/buy preference, route risk tolerance
+- `available_building_blocks`: in-stock, purchasable, and prior-route materials. Capture from the design spec's "Known available starting materials or building blocks" and "Preferred vendors, libraries, or inventory sources" fields. Write these into `DESIGN_LOOP_STATE.json`'s `available_building_blocks[]` so Step 3 can bias generation toward shelf-available materials (Fix C). See [references/design-loop-state-schema.md](references/design-loop-state-schema.md).
 - `experimental_feedback_policy`
 - `pareto_objectives` and confidence/evidence requirements for promotion
 - `xTB_proxy_targets`: what xTB can reasonably test
@@ -193,7 +195,11 @@ Merge `ZOTERO_KNOWLEDGE_PACKET.md` and `ACTIVE_SEARCH_PACKET.md` into `LIT_PACKE
 
 Generate 20-50 candidates in `ROUND_N_CANDIDATES.csv`. Every candidate must trace to at least one source in `LIT_PACKET.md`. Bounded-exploratory candidates (`zotero_grounding: none`) capped at 10%.
 
-For full column schema, bucket rules, and polymer-specific fields, see [references/candidate_schema.md](references/candidate_schema.md).
+**Mandatory cross-round exclusion (Fix A).** Before generating, read `DESIGN_LOOP_STATE.json` if it exists. Every `killed_motifs[]` entry is a hard exclusion constraint: no candidate may match a killed `smarts` or `murcko_scaffold`. A killed motif may be re-proposed **only** with an explicit, documented rescue hypothesis recorded in that candidate's `rationale` (e.g., the prior failure was a route problem now solved, not a structural dead end). See [references/design-loop-state-schema.md](references/design-loop-state-schema.md).
+
+**Availability bias (Fix C).** When `DESIGN_LOOP_STATE.json`'s `available_building_blocks[]` is non-empty, devote a portion of the round to candidates built from those in-stock/purchasable materials, tagged via the `building_block_source` column. A lightweight vendor-availability lookup (mirroring the novelty-check structure) may populate `building_block_source`, but this is not a new mandatory gate.
+
+For full column schema, bucket rules (including the shelf-biased building-block bucket), and polymer-specific fields, see [references/candidate_schema.md](references/candidate_schema.md).
 
 ### 3.5. Gemini adversarial chemistry review
 
@@ -215,6 +221,14 @@ python3 "$CODEX_HOME/skills/molecule-design-loop/scripts/rdkit_filter_candidates
 
 Pass constraints from `DESIGN_SPEC_LOCKED.md` as arguments: `--allowed-elements`, `--min-mw`, `--max-mw`, `--max-rotatable`, `--forbidden-smarts`.
 
+**`--forbidden-smarts` must be the union of two sources (Fix A):** the design spec's `forbidden_motifs` AND every `killed_motifs[].smarts` from `DESIGN_LOOP_STATE.json`. This makes historical structural failures filter out automatically — the flag already accepts a list, so no script change is needed:
+
+```bash
+# --forbidden-smarts list = spec forbidden_motifs ∪ DESIGN_LOOP_STATE.json killed_motifs[].smarts
+python3 ".../rdkit_filter_candidates.py" ... \
+  --forbidden-smarts "<spec_motif_1>" "<spec_motif_2>" "<killed_motif_smarts_1>" "<killed_motif_smarts_2>"
+```
+
 For medchem triage, also pass: `--min-qed`, `--max-logp`, `--max-tpsa`, `--max-hba`, `--max-hbd`, `--min-fsp3`, `--max-sa-score`, `--max-medchem-alerts`, `--reject-pains`, `--reject-brenk`, `--reject-scaffold-duplicates`.
 
 Write `ROUND_N_FILTERED.csv`. Keep rejected candidates with a rejection reason.
@@ -223,7 +237,9 @@ Write `ROUND_N_FILTERED.csv`. Keep rejected candidates with a rejection reason.
 
 Write `ROUND_N_SYNTHESIS_FEASIBILITY.csv`. Assess commercial availability, retrosynthetic route, protecting-group burden, purification risk, and known failure modes from the literature packet.
 
-For full column schema and promotion rules, see [references/synthesis-gate-schema.md](references/synthesis-gate-schema.md).
+The gate must also emit a directly sortable `synthesis_cost` (`low`/`medium`/`high`/`very_high`) and `time_to_first_sample` (`same_day`/`days`/`weeks`/`months`) estimate per candidate, so Step 11's Pareto ranking can treat synthesis economics as a first-class axis (Fix B), not a footnote.
+
+For full column schema, the make/buy preference ordering, and promotion rules, see [references/synthesis-gate-schema.md](references/synthesis-gate-schema.md).
 
 ### 5.5. Novelty check
 
@@ -308,6 +324,8 @@ Keep exact condition summaries; preserve failure rows as useful negative evidenc
 
 Create `ROUND_N_DECISION.md`. Start a **fresh Gemini thread** (separate from Steps 3.5 and 9.5). Gemini scores against `DESIGN_SPEC_LOCKED.md`, not raw xTB numbers.
 
+Pareto ranking **must** include synthesis cost and time-to-first-sample as a mandatory axis (Fix B): among candidates otherwise tied on property fit, prefer lower `synthesis_cost`/`time_to_first_sample`, and apply the make/buy tiebreak (`buy` < `make_on_demand` < `custom_synthesis`). A high-performing but 8-step custom synthesis should not outrank a comparable 2-step shelf-available candidate.
+
 For full Gemini prompt, scoring rubric (1-5), all required output fields, and Pareto ranking rules, see [references/gemini-scoring-protocol.md](references/gemini-scoring-protocol.md).
 
 ### 12. Iterate
@@ -325,7 +343,14 @@ For the next round, generate candidates by modifying observed failure modes:
 
 Carry forward: kept candidates, killed motifs and reasons, literature warnings, xTB failure modes, synthesis gate outcomes, experimental successes and failures.
 
-Update `DESIGN_LOOP_STATE.json` with: successful design moves, repeated failure motifs, scaffold families explored, evidence gaps, synthesis routes and building-block families, experimental endpoints, hypotheses worth revisiting.
+Update `DESIGN_LOOP_STATE.json` per the contract in [references/design-loop-state-schema.md](references/design-loop-state-schema.md): `successful_moves`, `killed_motifs`, `failed_reactions`, `scaffold_families_explored`, `evidence_gaps`, `available_building_blocks`, `experimental_endpoints`, and `hypotheses_to_revisit`. Update in place — do not overwrite earlier rounds.
+
+**Close the failure-feedback loop (Fix D).** The two highest-value negative signals must be written back as structured state, not left as prose:
+
+- Experimental `failure_mode` rows from `ROUND_N_EXPERIMENT_RESULTS.csv` → new `killed_motifs[]` and/or `failed_reactions[]` entries (with `failure_source: experiment`).
+- The `likely_lab_failure_mode` column from `ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md` → new `killed_motifs[]`/`failed_reactions[]` entries (with `failure_source: adversarial_review`).
+
+Whenever a structural pattern is implicated, record a SMARTS in the `killed_motifs[].smarts` field so the next round's Step 3 exclusion and Step 4 `--forbidden-smarts` union remove it automatically.
 
 ### 13. Stop and report
 

@@ -32,6 +32,7 @@ When a candidate is motivated by active-search findings (not Zotero), record `so
 - `source_hint`
 - `synthesis_hypothesis`
 - `make_or_buy_hint`
+- `building_block_source`: `in_stock`, `purchasable`, `custom`, or `unknown` — provenance of the starting materials, so the shelf-availability bias (Fix C) is visible in the CSV and cross-checkable at Step 5
 - `route_risk`
 - `experimental_readout`
 
@@ -111,6 +112,7 @@ Do not put polymer-only expressions in `smiles`, `rdkit_input_smiles`, `rdkit_di
 - **10-20%** conservative controls close to trusted seeds
 - **50-70%** directional edits that each test one primary hypothesis
 - **10-30%** bounded exploratory variants that still respect scaffold-level constraints
+- **shelf-biased building-block candidates** (Fix C): when `DESIGN_LOOP_STATE.json`'s `available_building_blocks[]` is non-empty, deliberately build a portion of the round from those in-stock/purchasable starting materials and tag them `building_block_source: in_stock` or `purchasable`. This bucket overlaps the directional/exploratory buckets — it is a sourcing bias, not an extra quota on top of 100%.
 
 ### Preferred mutation families
 
@@ -172,6 +174,8 @@ Required columns:
 - `route_steps_estimate`
 - `starting_materials_or_building_blocks`
 - `route_risk`: `low`, `medium`, `high`, or `unknown`
+- `synthesis_cost`: `low`, `medium`, `high`, or `very_high` — sortable cost/effort estimate (first-class Step 11 ranking axis)
+- `time_to_first_sample`: `same_day`, `days`, `weeks`, or `months`
 - `synthesis_confidence`: `high`, `medium`, `low`, or `unknown`
 - `synthesis_gate_reason`
 
@@ -292,6 +296,8 @@ Required notes per row:
 - `score_reason`: short rationale tied to the design constraints
 - `pass_hard_constraints`: `yes` or `no`
 - `synthesis_gate_status`: `pass`, `warn`, `fail`, or `not_run`
+- `synthesis_cost`: `low`, `medium`, `high`, or `very_high` — carried from the synthesis gate; a mandatory Pareto axis
+- `time_to_first_sample`: `same_day`, `days`, `weeks`, or `months` — carried from the synthesis gate
 - `xtb_status`: `pass`, `warn`, `fail`, or `not_run`
 - `evidence`: may include RDKit and xTB evidence, but xTB is evidence only, not the scorer
 - `uncertainty_reason`: why the confidence is limited or why additional evidence is needed

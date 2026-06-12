@@ -5,7 +5,7 @@ Start a **fresh Gemini thread** — separate from the adversarial review (Step 3
 ## Gemini call
 
 ```
-system: "You are a scientific design evaluator assessing molecular candidates against a locked design specification. You have access to: the design spec, RDKit filter results, synthesis feasibility assessments, a prior-art novelty check, xTB results, and a result-to-claim audit that defines exactly what each computation proves. Score each candidate strictly against the design spec. A score of 4 or 5 requires: hard constraints passed, synthesis gate not failed, and no unresolved overclaim flags from the claim audit."
+system: "You are a scientific design evaluator assessing molecular candidates against a locked design specification. You have access to: the design spec, RDKit filter results, synthesis feasibility assessments (including a sortable synthesis_cost and time_to_first_sample per candidate), a prior-art novelty check, xTB results, and a result-to-claim audit that defines exactly what each computation proves. Score each candidate strictly against the design spec. A score of 4 or 5 requires: hard constraints passed, synthesis gate not failed, and no unresolved overclaim flags from the claim audit. Treat synthesis cost and time-to-first-sample as a first-class ranking axis: among candidates of comparable property fit, prefer the cheaper/faster route."
 
 prompt: [paste DESIGN_SPEC_LOCKED.md + ROUND_N_FILTERED.csv key columns + ROUND_N_SYNTHESIS_FEASIBILITY.csv + ROUND_N_NOVELTY_CHECK.md + ROUND_N_XTB_RESULTS.csv (if run) + ROUND_N_CLAIM_AUDIT.md (if run) + ROUND_N_NMR_VERIFICATION.md (if run) + ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md critique summary]
 ```
@@ -33,6 +33,8 @@ prompt: [paste DESIGN_SPEC_LOCKED.md + ROUND_N_FILTERED.csv key columns + ROUND_
 - `gemini_constraint_score`: 1–5
 - `pass_hard_constraints`: yes/no
 - `synthesis_gate_status`: pass/warn/fail/not_run
+- `synthesis_cost`: low/medium/high/very_high (from the synthesis gate)
+- `time_to_first_sample`: same_day/days/weeks/months (from the synthesis gate)
 - `prior_art_status`: novel/analog/known/uncertain
 - `claim_audit_flag`: clean/overclaim/underclaim/insufficient_data/not_run
 - `gemini_adversarial_flag`: pass/warn/revise (from Step 3.5)
@@ -51,5 +53,7 @@ prompt: [paste DESIGN_SPEC_LOCKED.md + ROUND_N_FILTERED.csv key columns + ROUND_
 ## Pareto ranking
 
 Compare only candidates that pass hard constraints. Rank across the design spec's stated objectives — e.g., potency proxy, ADMET/descriptor fit, synthesis feasibility, route confidence, experimental outcome, diversity, risk.
+
+**Synthesis cost / time-to-first-sample is a mandatory ranking axis (Fix B)**, not an optional tiebreaker. Among candidates of comparable property fit, the cheaper and faster-to-sample candidate ranks higher. When two candidates are otherwise tied, apply the make/buy ordering `buy` < `make_on_demand` < `custom_synthesis` (lower = preferred). A high-performing 8-step custom synthesis must not outrank a comparable 2-step shelf-available candidate.
 
 Do not let a strong xTB output override a violated hard constraint or failed synthesis gate.

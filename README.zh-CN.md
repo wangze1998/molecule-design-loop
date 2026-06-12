@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.1-blue)
+![Status](https://img.shields.io/badge/status-v0.2.2-blue)
 
 一个面向 Codex 的开源分子与聚合物设计 skill，强调约束驱动设计。集成用户 Zotero 文献库和 Gemini MCP 实现双流文献智能、对抗性化学审查、新颖性检查和结果→结论审计。现支持结构图像输入和 Claude 原生 NMR 预测。
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md) | [分享包说明](SHARE_PACKAGE.zh-CN.md)
 
-> **当前版本：v0.2.1**（2026-06-06）。新增：结构图像输入（步骤 0.5）和 NMR 预测/验证（步骤 9.7），灵感来自 Anthropic "Making Claude a Chemist" 研究。用户现在可以从文献图片或手绘草图直接导入种子结构，并对候选分子进行 Claude 原生 NMR 合理性检查。
+> **当前版本：v0.2.2**（2026-06-12）。新增：跨轮失败记忆变为强制——`DESIGN_LOOP_STATE.json` 有了真正的 schema，已杀死的母核在生成（步骤 3）与过滤（步骤 4）阶段自动排除。合成成本/取样时间成为一等 Pareto 排序轴，可得原料偏置生成，实验失败回流到状态文件。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 > **xTB 前的人类审批仍然是强制的。** **Zotero MCP 和 Gemini MCP 需要配置**才能使用新步骤——不可用时工作流优雅降级。
 
 如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。
@@ -17,12 +17,14 @@
 
 ## 当前状态
 
-- 当前发布：`v0.2.1` — 结构图像输入 + NMR 预测
+- 当前发布：`v0.2.2` — 强制跨轮失败记忆 + 合成成本排序轴
 - 仓库定位：模块化 Codex skill，Zotero 驱动、对抗性审查的分子设计
 - 更新记录：[CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - 分享包范围说明：[SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## 版本轨迹
+
+**v0.2.2**（2026-06-12）— 强制跨轮失败记忆：定义 `DESIGN_LOOP_STATE.json` schema，已杀死母核在步骤 3/4 自动排除。合成成本/取样时间成为一等 Pareto 排序轴（步骤 11），可得原料偏置生成（步骤 1/3），实验与对抗评审的失败信号回流到状态文件（步骤 12）。
 
 **v0.2.1**（2026-06-06）— 结构图像输入（步骤 0.5）和 NMR 预测/验证（步骤 9.7）。重复的 `candidate-generation-schema.md` 合并至 `candidate_schema.md`。AGENT_GUIDE 和 README 同步更新。
 
@@ -48,6 +50,7 @@
 
 ## 最近更新
 
+- **2026-06-12** — v0.2.2：强制跨轮失败记忆（`DESIGN_LOOP_STATE.json` schema；步骤 3/4 排除已杀死母核）、合成成本排序轴、可得性偏置生成、实验失败回流。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-06-06** — v0.2.1：结构图像输入和 NMR 预测/验证。Schema 文件整合。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-05-31** — v0.2.0：完整重构。模块化 reference 文件，双流文献，Gemini 对抗审查，新颖性门控，结果→结论审计。
 - **2026-05-19** — v0.1.3：聚合物设计范围和分享包说明。

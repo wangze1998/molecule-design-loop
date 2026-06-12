@@ -4,6 +4,31 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.2.2 — 2026-06-12
+
+Closes the two open loops in the "decide whether to make it" logic: cross-round failure memory and synthesis economics. Previously both mechanisms only *recorded* knowledge — nothing forced the next round to use it. This release makes that knowledge enforced. Documentation-only; no Python changed (the RDKit filter already accepts the list-valued flags relied on here).
+
+### Added
+
+- **`references/design-loop-state-schema.md`** — a real, machine-readable schema for `DESIGN_LOOP_STATE.json`, which was referenced 5+ times across SKILL.md / AGENT_GUIDE.md but had no definition anywhere. Defines `killed_motifs[]` (with mandatory `smarts`), `failed_reactions[]`, `available_building_blocks[]`, `successful_moves[]`, `scaffold_families_explored`, `evidence_gaps`, `hypotheses_to_revisit`, and `experimental_endpoints`, plus a minimal valid JSON example.
+- New synthesis-gate columns `synthesis_cost` (`low`/`medium`/`high`/`very_high`) and `time_to_first_sample` (`same_day`/`days`/`weeks`/`months`).
+- New candidate column `building_block_source` (`in_stock`/`purchasable`/`custom`/`unknown`) and a shelf-biased building-block candidate bucket.
+- New Gemini scoring output fields `synthesis_cost` and `time_to_first_sample`.
+
+### Changed — the four closures
+
+- **(A) Cross-round failure memory is now enforced.** Step 3 must read `DESIGN_LOOP_STATE.json` and exclude any candidate matching a `killed_motifs[]` SMARTS/scaffold (re-proposal allowed only with a documented rescue hypothesis). Step 4's `--forbidden-smarts` must be the union of the spec's `forbidden_motifs` and every historical `killed_motifs[].smarts`. This structurally stops the loop from re-proposing a structure it already killed.
+- **(B) Synthesis cost is a first-class ranking axis.** The synthesis gate emits sortable `synthesis_cost`/`time_to_first_sample`; Step 11 Pareto ranking must include them, with a make/buy tiebreak (`buy` < `make_on_demand` < `custom_synthesis`). A strong but 8-step custom synthesis no longer silently outranks a comparable 2-step shelf-available candidate.
+- **(C) Availability moved upstream into generation.** Step 1 captures known/purchasable building blocks into `DESIGN_LOOP_STATE.json`; Step 3 biases a portion of the round toward those materials, tagged via `building_block_source`.
+- **(D) Lab-failure signals flow back into state.** Step 12 must write experimental `failure_mode` (from `ROUND_N_EXPERIMENT_RESULTS.csv`) and adversarial `likely_lab_failure_mode` (from `ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md`) back as structured `killed_motifs[]`/`failed_reactions[]` entries, so the next round excludes them automatically.
+
+### Notes
+
+- A and D are the two ends of one feedback loop (write failures → exclude them next round); B and C close the synthesis-economics loop at the ranking (back) and generation (front) ends.
+- SKILL.md Steps 1, 3, 4, 5, 11, 12 updated; `synthesis-gate-schema.md`, `gemini-scoring-protocol.md`, `candidate_schema.md`, and `AGENT_GUIDE.md` updated to match.
+
+---
+
 ## v0.2.1 — 2026-06-06
 
 New capabilities inspired by Anthropic's "Making Claude a Chemist" research. Structure image input lowers the barrier for seeding designs; NMR prediction adds a zero-dependency structure plausibility check. Housekeeping: duplicate schema files merged, AGENT_GUIDE updated to match current workflow.
