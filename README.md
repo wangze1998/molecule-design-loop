@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.2-blue)
+![Status](https://img.shields.io/badge/status-v0.2.3-blue)
 
 Open Codex skill for constraint-driven molecule and polymer design. Integrates the user's Zotero library and local Gemini MCP for dual-stream literature intelligence, adversarial chemistry review, novelty checking, and result-to-claim auditing — alongside RDKit filtering, visual candidate review, and explicit user approval before xTB. Now supports structure image input and Claude-native NMR prediction.
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Current release: v0.2.2** (2026-06-12). New: cross-round failure memory is now enforced — `DESIGN_LOOP_STATE.json` has a real schema, and killed motifs are excluded automatically at generation (Step 3) and filtering (Step 4). Synthesis cost / time-to-first-sample is now a first-class Pareto axis, building-block availability biases generation, and lab failures flow back into state. See [CHANGELOG.md](CHANGELOG.md).
+> **Current release: v0.2.3** (2026-08-10). New: synthesis practicality is now a **dominance** criterion rather than a tiebreaker — the gate emits `overall_yield_estimate` and `hazard_toxicity_flag` alongside cost and lead time, records `route_alternatives` when several routes exist, and Step 11 keeps any candidate dominated on those axes out of the top 3. Feasible is not practical. See [CHANGELOG.md](CHANGELOG.md).
 > **Human approval stays mandatory before xTB.** **Zotero MCP and Gemini MCP must be configured** for the new steps — the skill falls back gracefully when they are unavailable.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -17,12 +17,14 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release: `v0.2.2` — enforced cross-round failure memory + synthesis-cost ranking
+- Current release: `v0.2.3` — multi-objective synthesis practicality as a dominance criterion
 - Repo focus: modular Codex skill for Zotero-grounded, adversarially reviewed molecular design
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## Release Track
+
+**v0.2.3** (2026-08-10) — Synthesis practicality became multi-objective and enforcing: new `overall_yield_estimate` and `hazard_toxicity_flag` gate columns, optional `route_alternatives` trade-off profile, and Step 11 ranking by Pareto *dominance* over {property fit, cost, time, yield, hazard} instead of a tiebreak. Dominated candidates cannot enter the top 3.
 
 **v0.2.2** (2026-06-12) — Enforced cross-round failure memory: `DESIGN_LOOP_STATE.json` schema defined, killed motifs excluded at Steps 3/4. Synthesis cost / time-to-first-sample is now a first-class Pareto axis (Step 11), building-block availability biases generation (Steps 1/3), and experimental + adversarial lab failures flow back into state (Step 12).
 
@@ -50,6 +52,7 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
+- **2026-08-10** — v0.2.3: synthesis practicality is a dominance criterion, not a tiebreaker; yield and hazard axes added; route trade-offs recorded instead of collapsed into one cost number. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-06-12** — v0.2.2: enforced cross-round failure memory (`DESIGN_LOOP_STATE.json` schema; killed motifs excluded at Steps 3/4), synthesis-cost ranking axis, availability-biased generation, and lab-failure feedback. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-06-06** — v0.2.1: structure image input and NMR prediction/verification. Schema files consolidated. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-05-31** — v0.2.0: complete redesign. Modular reference files, dual literature streams, Gemini adversarial reviewer, novelty gate, result-to-claim audit.

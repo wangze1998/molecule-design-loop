@@ -4,6 +4,33 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.2.3 — 2026-08-10
+
+Extends the synthesis-economics work of v0.2.2 from a single cost scalar to a multi-objective practicality picture, and promotes practicality from a tiebreaker to a dominance criterion. Motivated by multi-objective synthesis planning work (Hastedt, Zhang & del Rio Chanona, *From Feasible to Practical: Pareto-Optimal Synthesis Planning*, arXiv:2605.07521), whose central point is that a route which merely exists is not a route worth running, and that scalarizing the route choice hides the trade-off. Documentation-only; no Python changed.
+
+### Added
+
+- Synthesis-gate columns `overall_yield_estimate` (`high`/`medium`/`low`/`unknown`) and `hazard_toxicity_flag` (`none`/`standard_care`/`high_hazard`/`unknown`) — the two practicality axes that v0.2.2 lacked. Cost and lead time alone cannot distinguish a cheap high-hazard route from a cheap benign one.
+- Recommended synthesis-gate column `route_alternatives` — a compact `route_id | steps | cost | yield_estimate | hazard_flag` profile for 1-3 routes, so the route choice stays visible instead of collapsing into one `synthesis_cost` number. `single_route_only` when evidence supports just one route.
+- Gemini scoring output field `practicality_dominance` (`non_dominated` / `dominated_by:<candidate_id>` / `not_assessed`).
+
+### Changed
+
+- **Practicality is now a dominance criterion, not a tiebreaker.** v0.2.2 applied synthesis cost only when candidates were "otherwise tied", which is too weak — a candidate could be worse on *every* practicality axis and still win on a marginally better property score. Step 11 now computes dominance over {property fit, `synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, `hazard_toxicity_flag`}; a dominated candidate cannot enter the top 3 of `pareto_rank` whatever its score. Ranking within the non-dominated front keeps the make/buy tiebreak.
+- `unknown` is treated as non-comparable on its axis (it can neither dominate nor be dominated there) and lowers `confidence`, so missing data cannot be laundered into a favourable rank.
+- Non-dominated candidates are presented as a trade-off set rather than forced into a single rank-1 winner.
+
+### Honesty boundary
+
+- Without a retrosynthesis/CASP engine and a price/toxicity database, `route_alternatives` and the practicality axes are heuristic estimates — **not** an optimality-guaranteed Pareto front over routes in the sense of multi-objective CASP search. They must be labelled as estimates. When a CASP tool is available, prefer its output and record it in `retrosynthesis_tool`. Use `unknown` rather than fabricating a yield or cost. This mirrors the existing `SA score is not a route` boundary.
+
+### Notes
+
+- SKILL.md Steps 5 and 11 updated; `synthesis-gate-schema.md`, `gemini-scoring-protocol.md`, `candidate_schema.md`, and `AGENT_GUIDE.md` updated to match.
+- No attempt is made to reimplement a multi-objective retrosynthesis search. That would require a trained single-step model, a price database, and yield/toxicity models — hard dependencies that would break the skill's "xTB itself is optional, report the blocker if it is missing" design.
+
+---
+
 ## v0.2.2 — 2026-06-12
 
 Closes the two open loops in the "decide whether to make it" logic: cross-round failure memory and synthesis economics. Previously both mechanisms only *recorded* knowledge — nothing forced the next round to use it. This release makes that knowledge enforced. Documentation-only; no Python changed (the RDKit filter already accepts the list-valued flags relied on here).

@@ -176,11 +176,14 @@ Required columns:
 - `route_risk`: `low`, `medium`, `high`, or `unknown`
 - `synthesis_cost`: `low`, `medium`, `high`, or `very_high` — sortable cost/effort estimate (first-class Step 11 ranking axis)
 - `time_to_first_sample`: `same_day`, `days`, `weeks`, or `months`
+- `overall_yield_estimate`: `high` (>60%), `medium` (30-60%), `low` (<30%), or `unknown` — Step 11 practicality axis
+- `hazard_toxicity_flag`: `none`, `standard_care`, `high_hazard`, or `unknown` — Step 11 practicality axis
 - `synthesis_confidence`: `high`, `medium`, `low`, or `unknown`
 - `synthesis_gate_reason`
 
 Recommended columns:
 
+- `route_alternatives`: `route_id | steps | cost | yield_estimate | hazard_flag` per route, `;`-separated; or `single_route_only`
 - `retrosynthesis_tool`
 - `route_reference`
 - `vendor_or_library_hint`
@@ -298,6 +301,9 @@ Required notes per row:
 - `synthesis_gate_status`: `pass`, `warn`, `fail`, or `not_run`
 - `synthesis_cost`: `low`, `medium`, `high`, or `very_high` — carried from the synthesis gate; a mandatory Pareto axis
 - `time_to_first_sample`: `same_day`, `days`, `weeks`, or `months` — carried from the synthesis gate
+- `overall_yield_estimate`: `high`, `medium`, `low`, or `unknown` — carried from the synthesis gate; a practicality axis
+- `hazard_toxicity_flag`: `none`, `standard_care`, `high_hazard`, or `unknown` — carried from the synthesis gate; a practicality axis
+- `practicality_dominance`: `non_dominated`, `dominated_by:<candidate_id>`, or `not_assessed` — a dominated candidate must not enter the top 3 of `pareto_rank`
 - `xtb_status`: `pass`, `warn`, `fail`, or `not_run`
 - `evidence`: may include RDKit and xTB evidence, but xTB is evidence only, not the scorer
 - `uncertainty_reason`: why the confidence is limited or why additional evidence is needed

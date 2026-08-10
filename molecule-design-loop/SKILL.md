@@ -239,6 +239,10 @@ Write `ROUND_N_SYNTHESIS_FEASIBILITY.csv`. Assess commercial availability, retro
 
 The gate must also emit a directly sortable `synthesis_cost` (`low`/`medium`/`high`/`very_high`) and `time_to_first_sample` (`same_day`/`days`/`weeks`/`months`) estimate per candidate, so Step 11's Pareto ranking can treat synthesis economics as a first-class axis (Fix B), not a footnote.
 
+**Feasible is not practical.** A route that merely exists is not a route worth running, so the gate must also emit `overall_yield_estimate` (`high`/`medium`/`low`/`unknown`) and `hazard_toxicity_flag` (`none`/`standard_care`/`high_hazard`/`unknown`). Where route evidence supports more than one route, record the trade-off in `route_alternatives` rather than collapsing the choice into a single cost number — a 3-step high-hazard route and a 6-step benign one are different offers, and the chemist picks between them.
+
+Use `unknown` rather than a fabricated value. Without a retrosynthesis/CASP engine and a price/toxicity database these axes are heuristic estimates, not an optimality-guaranteed route Pareto front; label them as estimates.
+
 For full column schema, the make/buy preference ordering, and promotion rules, see [references/synthesis-gate-schema.md](references/synthesis-gate-schema.md).
 
 ### 5.5. Novelty check
@@ -324,7 +328,9 @@ Keep exact condition summaries; preserve failure rows as useful negative evidenc
 
 Create `ROUND_N_DECISION.md`. Start a **fresh Gemini thread** (separate from Steps 3.5 and 9.5). Gemini scores against `DESIGN_SPEC_LOCKED.md`, not raw xTB numbers.
 
-Pareto ranking **must** include synthesis cost and time-to-first-sample as a mandatory axis (Fix B): among candidates otherwise tied on property fit, prefer lower `synthesis_cost`/`time_to_first_sample`, and apply the make/buy tiebreak (`buy` < `make_on_demand` < `custom_synthesis`). A high-performing but 8-step custom synthesis should not outrank a comparable 2-step shelf-available candidate.
+**Synthesis practicality is a dominance criterion, not a tiebreaker.** Compute dominance over {property fit, `synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, `hazard_toxicity_flag`}: a candidate that is no better on every one of those axes than some other candidate is dominated, is recorded as `dominated_by:<candidate_id>` in `practicality_dominance`, and must not enter the top 3 of `pareto_rank` whatever its score. Rank within the non-dominated front by design-spec priority, then apply the make/buy tiebreak (`buy` < `make_on_demand` < `custom_synthesis`). Treat `unknown` as non-comparable on that axis and lower `confidence`.
+
+A high-performing but 8-step custom synthesis should not outrank a comparable 2-step shelf-available candidate — and a cheap fast candidate that is clearly worse on the design objective does not win by being cheap. When several candidates are non-dominated, present the trade-off instead of forcing a single winner.
 
 For full Gemini prompt, scoring rubric (1-5), all required output fields, and Pareto ranking rules, see [references/gemini-scoring-protocol.md](references/gemini-scoring-protocol.md).
 

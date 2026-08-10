@@ -120,7 +120,7 @@ Prefer a project-local `molecule-design-stage/` directory with:
 5. Generate interpretable SMILES candidates tied to specific constraints. Before generating, read `DESIGN_LOOP_STATE.json` and exclude any candidate matching a `killed_motifs[]` SMARTS/scaffold (Step 3, Fix A); bias a portion toward `available_building_blocks[]` (Fix C).
 6. Run Gemini adversarial review (Step 3.5) on raw candidates.
 7. Run deterministic RDKit filtering with `--forbidden-smarts` = spec `forbidden_motifs` ∪ `DESIGN_LOOP_STATE.json` `killed_motifs[].smarts`; keep rejection reasons.
-8. Run synthesis-feasibility gate (Step 5), emitting sortable `synthesis_cost` and `time_to_first_sample`.
+8. Run synthesis-feasibility gate (Step 5), emitting sortable `synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, and `hazard_toxicity_flag`; record `route_alternatives` when more than one route is supported by evidence.
 9. Run novelty check (Step 5.5).
 10. Render `ROUND_N_CANDIDATE_GALLERY.html`.
 11. Pause for explicit user approval before any xTB run.
@@ -128,7 +128,7 @@ Prefer a project-local `molecule-design-stage/` directory with:
 13. Run result-to-claim audit (Step 9.5).
 14. Run NMR prediction/verification if requested (Step 9.7).
 15. Ingest experimental feedback if available.
-16. Score with Gemini + Pareto ranking; synthesis cost / time-to-first-sample is a mandatory ranking axis (Fix B).
+16. Score with Gemini + Pareto ranking; synthesis practicality is a **dominance** criterion, not a tiebreaker — a candidate dominated on {property fit, cost, time, yield, hazard} is recorded in `practicality_dominance` and kept out of the top 3.
 17. Either iterate or write the final report. On iterate, write experimental `failure_mode` and adversarial `likely_lab_failure_mode` back into `DESIGN_LOOP_STATE.json` as structured `killed_motifs[]`/`failed_reactions[]` (Fix D).
 
 ## Hard Guardrails
@@ -140,6 +140,7 @@ Prefer a project-local `molecule-design-stage/` directory with:
 - If a hard constraint is ambiguous, stop and ask a targeted question before expensive calculations.
 - NMR predictions are Claude-native plausibility checks, not validated computational methods. Always label as "Claude-predicted."
 - Structure image extractions with low confidence require user confirmation before proceeding.
+- Synthesis practicality axes (`synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, `hazard_toxicity_flag`, `route_alternatives`) are heuristic estimates unless a retrosynthesis/CASP tool produced them — never present them as an optimality-guaranteed route Pareto front. Use `unknown` instead of inventing a yield or cost.
 
 ## Local Validation
 

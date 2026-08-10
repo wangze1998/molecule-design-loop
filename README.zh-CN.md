@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.2-blue)
+![Status](https://img.shields.io/badge/status-v0.2.3-blue)
 
 一个面向agent的开源分子与聚合物设计 skill，强调约束驱动设计。集成用户 Zotero 文献库和 Gemini MCP 实现双流文献智能、对抗性化学审查、新颖性检查和结果→结论审计。现支持结构图像输入和 Claude 原生 NMR 预测。
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md) | [分享包说明](SHARE_PACKAGE.zh-CN.md)
 
-> **当前版本：v0.2.2**（2026-06-12）。新增：跨轮失败记忆变为强制——`DESIGN_LOOP_STATE.json` 有了真正的 schema，已杀死的母核在生成（步骤 3）与过滤（步骤 4）阶段自动排除。合成成本/取样时间成为一等 Pareto 排序轴，可得原料偏置生成，实验失败回流到状态文件。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+> **当前版本：v0.2.3**（2026-08-10）。新增：合成实用性从平手判定升级为**支配判定**——闸门在成本与取样时间之外新增 `overall_yield_estimate` 与 `hazard_toxicity_flag`，多条路线时记录 `route_alternatives`，步骤 11 将在这些轴上被支配的候选挡在前三之外。可行不等于值得做。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 > **xTB 前的人类审批仍然是强制的。** **Zotero MCP 和 Gemini MCP 需要配置**才能使用新步骤——不可用时工作流优雅降级。
 
 如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。
@@ -17,12 +17,14 @@
 
 ## 当前状态
 
-- 当前发布：`v0.2.2` — 强制跨轮失败记忆 + 合成成本排序轴
+- 当前发布：`v0.2.3` — 多目标合成实用性，升级为支配判定
 - 仓库定位：模块化 Codex skill，Zotero 驱动、对抗性审查的分子设计
 - 更新记录：[CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - 分享包范围说明：[SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## 版本轨迹
+
+**v0.2.3**（2026-08-10）— 合成实用性变为多目标且具约束力：闸门新增 `overall_yield_estimate` 与 `hazard_toxicity_flag` 列、可选的 `route_alternatives` 权衡画像；步骤 11 改为在 {性质契合, 成本, 时间, 收率, 危害} 上按 Pareto **支配关系**排序，而非平手判定。被支配的候选不得进入前三。
 
 **v0.2.2**（2026-06-12）— 强制跨轮失败记忆：定义 `DESIGN_LOOP_STATE.json` schema，已杀死母核在步骤 3/4 自动排除。合成成本/取样时间成为一等 Pareto 排序轴（步骤 11），可得原料偏置生成（步骤 1/3），实验与对抗评审的失败信号回流到状态文件（步骤 12）。
 

@@ -4,6 +4,33 @@
 
 ---
 
+## v0.2.3 — 2026-08-10
+
+把 v0.2.2 的合成经济性工作从"单一成本标量"扩展为"多目标实用性画像"，并把实用性从**平手判定**升级为**支配判定**。灵感来自多目标合成规划工作（Hastedt, Zhang & del Rio Chanona，*From Feasible to Practical: Pareto-Optimal Synthesis Planning*，arXiv:2605.07521）——其核心论点是：一条仅仅"存在"的路线并不等于"值得走"的路线，而把路线选择标量化会抹掉权衡结构。纯文档改动，未改动 Python。
+
+### 新增
+
+- 合成闸门新增列 `overall_yield_estimate`（`high`/`medium`/`low`/`unknown`）与 `hazard_toxicity_flag`（`none`/`standard_care`/`high_hazard`/`unknown`）—— 这是 v0.2.2 缺失的两根实用性轴。仅有成本与取样时间，无法区分"便宜但高危"与"便宜且温和"的两条路线。
+- 合成闸门新增推荐列 `route_alternatives` —— 以 `route_id | steps | cost | yield_estimate | hazard_flag` 紧凑记录 1-3 条候选路线，使路线选择保持可见，而不是被压缩成单个 `synthesis_cost` 数字。若证据只支持一条路线，填 `single_route_only`。
+- Gemini 打分新增输出字段 `practicality_dominance`（`non_dominated` / `dominated_by:<candidate_id>` / `not_assessed`）。
+
+### 变更
+
+- **实用性从平手判定升级为支配判定。** v0.2.2 只在候选"其他方面打平"时才使用合成成本，这太弱了——一个候选可能在**每一根**实用性轴上都更差，却因为性质分略高而胜出。Step 11 现在在 {性质契合, `synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, `hazard_toxicity_flag`} 上计算支配关系；被支配的候选无论分数多高都不得进入 `pareto_rank` 前三。非支配前沿内部的排序保留 make/buy 平手判定。
+- `unknown` 在所属轴上视为不可比较（既不能支配也不能被支配），并降低 `confidence`，避免"数据缺失"被洗成有利排名。
+- 多个非支配候选以**权衡集合**呈现，而不是强行挑出唯一的第一名。
+
+### 诚实边界
+
+- 在没有真实逆合成/CASP 引擎与价格/毒性数据库的情况下，`route_alternatives` 与各实用性轴都是**启发式估计**，**不是**多目标 CASP 搜索意义上有最优性保证的路线 Pareto 前沿，必须标注为估计。若环境中有 CASP 工具，优先采用其输出并记入 `retrosynthesis_tool`。宁可填 `unknown`，不要编造收率或成本。此边界与既有的"SA score 不是路线"规则对称。
+
+### 说明
+
+- 更新 SKILL.md 步骤 5 与 11；`synthesis-gate-schema.md`、`gemini-scoring-protocol.md`、`candidate_schema.md`、`AGENT_GUIDE.md` 同步更新。
+- 未尝试复现多目标逆合成搜索本身。那需要训练好的单步模型、价格数据库、收率/毒性模型——这些硬依赖会破坏本 skill "连 xTB 都是可选、缺失时明确报阻塞"的轻量设计。
+
+---
+
 ## v0.2.2 — 2026-06-12
 
 闭合"决定要不要做"逻辑里两条一直开口的回路：跨轮失败记忆与合成经济性。此前这两套机制都只"记录"知识，没有任何环节强制下一轮去用它。本次发布把这些知识变成强制项。纯文档改动，不改 Python（RDKit 过滤器本就接受这里所依赖的列表型参数）。
