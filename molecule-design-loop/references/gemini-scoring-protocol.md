@@ -28,6 +28,8 @@ prompt: [paste DESIGN_SPEC_LOCKED.md + ROUND_N_FILTERED.csv key columns + ROUND_
 - Missing experimental evidence lowers confidence, not automatically kills a candidate.
 - Synthesis feasibility can block final promotion even when RDKit/xTB look strong.
 - Practicality axes (`synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, `hazard_toxicity_flag`) are heuristic estimates unless a retrosynthesis/CASP tool produced them. Use them for ranking, but do not report them as if they were tool-computed route optima.
+- A candidate with `claim_audit_flag: no_direct_evidence` may still score well on constraint fit, but its `evidence_level` must be `literature_only` or `hypothesis_only`, and its `supported_design_claim` must not describe the un-evidenced objective as computationally supported.
+- If `DESIGN_LOOP_STATE.json` carries a `loop_calibration.known_bias` entry that applies to a candidate's evidence type (e.g. the loop has repeatedly over-scored literature-analogy-only candidates), lower that candidate's `confidence` and say why in `uncertainty_reason`.
 
 ## Required output fields per candidate
 
@@ -40,7 +42,7 @@ prompt: [paste DESIGN_SPEC_LOCKED.md + ROUND_N_FILTERED.csv key columns + ROUND_
 - `hazard_toxicity_flag`: none/standard_care/high_hazard/unknown (from the synthesis gate)
 - `practicality_dominance`: `non_dominated`, `dominated_by:<candidate_id>`, or `not_assessed`
 - `prior_art_status`: novel/analog/known/uncertain
-- `claim_audit_flag`: clean/overclaim/underclaim/insufficient_data/not_run
+- `claim_audit_flag`: clean/overclaim/underclaim/insufficient_data/no_direct_evidence/not_run
 - `gemini_adversarial_flag`: pass/warn/revise (from Step 3.5)
 - `xTB_status`: pass/warn/fail/not_run
 - `nmr_verification_status`: confirmed/consistent/inconclusive/mismatch/not_run

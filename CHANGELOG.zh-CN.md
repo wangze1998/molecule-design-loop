@@ -4,6 +4,34 @@
 
 ---
 
+## v0.2.4 — 2026-08-21
+
+让 loop 对自己诚实：它现在必须报告"哪些设计目标它其实没有任何证据"，并且必须记录"自己推荐过的结构后来到底成了多少"。灵感来自 Min 等，*From Static to Dynamic Structures: Improving Binding Affinity Prediction with Graph-Based Deep Learning*（Adv. Sci. 2024，DOI 10.1002/advs.202405404）——该文的虚拟筛选报告了真实的前瞻性命中率（20 个候选实验验证、12 个 hit、2 个亚微摩尔），而这种自我核算恰恰是本 loop 此前无法产出的。纯文档改动，未改动 Python。
+
+### 新增
+
+- **`DESIGN_LOOP_STATE.json` 新增 `loop_calibration` 块**（`references/design-loop-state-schema.md`）—— 记录 loop 自身的战绩：`rounds[]`（推荐数 / 实际尝试 / 成功合成 / 达标数 / 命中率）、`prediction_vs_outcome[]`（当初的预测分与优先级 vs. 实测结果，标记为 `confirmed` / `optimistic` / `pessimistic`）、`known_bias[]`、`calibration_summary`。这纯粹是对已有数据的聚合——推荐记录来自 `ROUND_N_DECISION.md`，实际结果来自 `ROUND_N_EXPERIMENT_RESULTS.csv`，不需要任何新测量。
+- `auditor_flag` 新增取值 `no_direct_evidence`；`ROUND_N_CLAIM_AUDIT.md` 新增必填章节 `Un-Evidenced Design Objectives`。
+- `DESIGN_REPORT.md` 新增两个必填章节：无证据目标、loop 校准战绩。
+
+### 变更
+
+- **claim-audit 的触发条件从一种扩展为两种。** 原为 `mandatory when xTB runs`，这留下了一个静默漏洞：一个靶向设计如果没跑 xTB，就完全不会被审计——于是候选可以通过硬约束、通过合成闸门、描述符干净、仅凭文献类比拿到 5 分，而 loop **对化学家真正关心的那个性质产出了零证据，却全程没有任何环节说出这一点**。现在只要设计目标属于 loop 无法提供证据的性质（结合亲和力、活性、选择性、催化活性、自组装、透膜性、体内表现），审计就同样强制运行——**即使没跑 xTB**，此时审计的产出就是"不存在直接证据"这一显式声明。
+- 被标记 `no_direct_evidence` 的候选仍可在约束契合度上得高分，但其 `evidence_level` 必须为 `literature_only` 或 `hypothesis_only`，且其支持性结论不得把该无证据目标描述为"有计算支持"。
+- 当 `loop_calibration.known_bias` 中的某条偏差适用于某候选的证据类型时，Step 11 必须降低其 `confidence`——让实测到的校准偏差回流进打分。
+- 无证据目标会被追加到 `evidence_gaps`，并在报告的"不可声称"部分点名。
+
+### 诚实边界
+
+- 校准战绩必须如实报告，**包括难看的时候**。一个隐瞒自身失手率的 loop 比没有 loop 更糟，因为它会让你把台架时间花在虚假的信心上。少于 5 个实际尝试的命中率必须标注为小样本，不得作为性能数字呈现；没有实验反馈时，正确答案是 `not_computable` / `null`。绝不能仅凭预测去估算命中率。
+
+### 说明
+
+- 更新 SKILL.md 常量与步骤 9.5、12、13；`claim-audit-protocol.md`、`design-loop-state-schema.md`、`gemini-scoring-protocol.md`、`candidate_schema.md`、`AGENT_GUIDE.md` 同步更新。
+- **未新增结合亲和力或 MD/系综预测层。** 那需要蛋白结构、docking 或亲和力模型、MD 轨迹——与 v0.2.3 刻意排除的是同一类硬依赖。该论文的系综洞察仍作为报告中"推荐的下一步计算"里的具名可选项，而非主流程步骤。
+
+---
+
 ## v0.2.3 — 2026-08-10
 
 把 v0.2.2 的合成经济性工作从"单一成本标量"扩展为"多目标实用性画像"，并把实用性从**平手判定**升级为**支配判定**。灵感来自多目标合成规划工作（Hastedt, Zhang & del Rio Chanona，*From Feasible to Practical: Pareto-Optimal Synthesis Planning*，arXiv:2605.07521）——其核心论点是：一条仅仅"存在"的路线并不等于"值得走"的路线，而把路线选择标量化会抹掉权衡结构。纯文档改动，未改动 Python。

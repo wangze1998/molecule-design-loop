@@ -24,6 +24,7 @@ It is **not** a free-form scratchpad. The fields below are a contract: Step 3 (c
 - `evidence_gaps`: array of strings — properties still lacking evidence.
 - `hypotheses_to_revisit`: array of strings — ideas parked for a later round.
 - `experimental_endpoints`: array — measured endpoints carried from `ROUND_N_EXPERIMENT_RESULTS.csv`.
+- `loop_calibration`: object — the loop's own track record: what it promoted vs. what actually worked (see below).
 - `notes`: optional free-text string for retractions or cross-round caveats.
 
 ### `killed_motifs[]` (each object)
@@ -61,13 +62,43 @@ It is **not** a free-form scratchpad. The fields below are a contract: Step 3 (c
 
 - `candidate_id`, `measured_endpoint`, `measured_value`, `unit`, `success_status`, `source_round`.
 
+### `loop_calibration` (object)
+
+The loop's own track record. Everything here is an aggregation of data the loop already collects — `ROUND_N_DECISION.md` for what was promoted, `ROUND_N_EXPERIMENT_RESULTS.csv` for what actually happened. No new measurement is required.
+
+This exists to answer one question the loop otherwise cannot answer: **of the structures this loop told the chemist to make, what fraction were worth making?** Without it there is no way to tell whether the loop is saving bench time or just producing plausible CSVs.
+
+- `rounds[]`: one record per completed round —
+  - `round`: integer.
+  - `promoted_count`: candidates the round recommended for synthesis (`decision: keep` / Pareto top-N / `experimental_priority: high`).
+  - `attempted_count`: how many the chemist actually made. `null` when unknown.
+  - `synthesis_success_count`: how many were successfully made and purified. `null` when unknown.
+  - `endpoint_success_count`: how many met the design objective once measured (`success_status: pass`). `null` when unknown.
+  - `hit_rate`: `endpoint_success_count / attempted_count` as a decimal, or `not_computable`.
+- `prediction_vs_outcome[]`: one record per candidate that has both a prediction and an experimental result —
+  - `candidate_id`, `round`.
+  - `predicted_score`: the `gemini_constraint_score` it received.
+  - `predicted_priority`: the `experimental_priority` it received.
+  - `observed_status`: the experimental `success_status`.
+  - `agreement`: `confirmed` (high score → worked), `optimistic` (high score → failed), `pessimistic` (low score → worked), or `inconclusive`.
+- `known_bias`: array of strings — recurring miscalibration the loop should correct for, e.g. `"over-scores candidates whose only evidence is literature analogy"`.
+- `calibration_summary`: short text, written for the chemist, stating the current track record plainly.
+
+**Rules**
+
+- Report the track record honestly, **including when it is unflattering**. A loop that hides its own miss rate is worse than no loop, because it spends bench time on false confidence.
+- `not_computable` / `null` are correct answers when no experimental feedback exists. Never estimate a hit rate from predictions alone.
+- A hit rate computed from fewer than 5 attempted candidates must be labelled small-sample in `calibration_summary` and must not be presented as a performance figure.
+- A repeated `optimistic` pattern in `prediction_vs_outcome[]` should be written into `known_bias` and referenced by the next round's scoring (Step 11) as a reason to lower `confidence`.
+
 ## How the loop consumes this file
 
 - **Step 1** writes `available_building_blocks[]` from the locked design spec's known-materials / preferred-vendor fields.
 - **Step 3** reads `killed_motifs[]` and excludes any candidate matching a killed `smarts` or `murcko_scaffold`, unless the candidate carries an explicit documented rescue hypothesis in its `rationale`. It also biases a portion of the round toward `available_building_blocks[]` (tagged `building_block_source`).
 - **Step 4** assembles `--forbidden-smarts` as the union of the design spec's `forbidden_motifs` and every `killed_motifs[].smarts`.
 - **Step 11** may read `successful_moves[]` and `evidence_gaps[]` to inform ranking and revision hints.
-- **Step 12** writes new `killed_motifs[]` / `failed_reactions[]` entries from experimental `failure_mode` and adversarial `likely_lab_failure_mode`, so the next round excludes them automatically.
+- **Step 12** writes new `killed_motifs[]` / `failed_reactions[]` entries from experimental `failure_mode` and adversarial `likely_lab_failure_mode`, so the next round excludes them automatically. It also updates `loop_calibration` by comparing what the previous round promoted against what the experiments returned.
+- **Step 13** reports `loop_calibration` in `DESIGN_REPORT.md`, unflattering results included.
 
 ## Minimal valid example
 
@@ -125,6 +156,38 @@ It is **not** a free-form scratchpad. The fields below are a contract: Step 3 (c
       "source_round": 1
     }
   ],
+  "loop_calibration": {
+    "rounds": [
+      {
+        "round": 1,
+        "promoted_count": 5,
+        "attempted_count": 3,
+        "synthesis_success_count": 2,
+        "endpoint_success_count": 1,
+        "hit_rate": 0.33
+      }
+    ],
+    "prediction_vs_outcome": [
+      {
+        "candidate_id": "cand_03",
+        "round": 1,
+        "predicted_score": 5,
+        "predicted_priority": "high",
+        "observed_status": "pass",
+        "agreement": "confirmed"
+      },
+      {
+        "candidate_id": "cand_07",
+        "round": 1,
+        "predicted_score": 4,
+        "predicted_priority": "high",
+        "observed_status": "fail",
+        "agreement": "optimistic"
+      }
+    ],
+    "known_bias": [],
+    "calibration_summary": "Round 1: 3 of 5 promoted candidates were attempted, 1 met the endpoint. Small sample — not yet a performance figure."
+  },
   "notes": ""
 }
 ```

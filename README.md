@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.3-blue)
+![Status](https://img.shields.io/badge/status-v0.2.4-blue)
 
 Open Codex skill for constraint-driven molecule and polymer design. Integrates the user's Zotero library and local Gemini MCP for dual-stream literature intelligence, adversarial chemistry review, novelty checking, and result-to-claim auditing — alongside RDKit filtering, visual candidate review, and explicit user approval before xTB. Now supports structure image input and Claude-native NMR prediction.
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Current release: v0.2.3** (2026-08-10). New: synthesis practicality is now a **dominance** criterion rather than a tiebreaker — the gate emits `overall_yield_estimate` and `hazard_toxicity_flag` alongside cost and lead time, records `route_alternatives` when several routes exist, and Step 11 keeps any candidate dominated on those axes out of the top 3. Feasible is not practical. See [CHANGELOG.md](CHANGELOG.md).
+> **Current release: v0.2.4** (2026-08-21). New: the loop is now honest about itself. It must declare which design objectives it produced **no evidence** for — the claim audit now runs even without xTB whenever the objective is affinity, potency, selectivity, self-assembly or similar — and it keeps a `loop_calibration` track record of how often its own recommendations actually worked, reported unflattering results included. See [CHANGELOG.md](CHANGELOG.md).
 > **Human approval stays mandatory before xTB.** **Zotero MCP and Gemini MCP must be configured** for the new steps — the skill falls back gracefully when they are unavailable.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -17,12 +17,14 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release: `v0.2.3` — multi-objective synthesis practicality as a dominance criterion
+- Current release: `v0.2.4` — evidence-gap declaration + loop self-calibration
 - Repo focus: modular Codex skill for Zotero-grounded, adversarially reviewed molecular design
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## Release Track
+
+**v0.2.4** (2026-08-21) — The loop must now say what it does *not* know. Claim audit triggers on un-evidenceable objectives (affinity, potency, selectivity, self-assembly…) even when xTB never ran, emitting `no_direct_evidence`. New `loop_calibration` block tracks promoted-vs-worked and prediction-vs-outcome, reported honestly in `DESIGN_REPORT.md`.
 
 **v0.2.3** (2026-08-10) — Synthesis practicality became multi-objective and enforcing: new `overall_yield_estimate` and `hazard_toxicity_flag` gate columns, optional `route_alternatives` trade-off profile, and Step 11 ranking by Pareto *dominance* over {property fit, cost, time, yield, hazard} instead of a tiebreak. Dominated candidates cannot enter the top 3.
 
@@ -52,6 +54,7 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
+- **2026-08-21** — v0.2.4: un-evidenced design objectives must be declared (claim audit no longer requires xTB to fire), and the loop keeps score of its own hit rate. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-08-10** — v0.2.3: synthesis practicality is a dominance criterion, not a tiebreaker; yield and hazard axes added; route trade-offs recorded instead of collapsed into one cost number. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-06-12** — v0.2.2: enforced cross-round failure memory (`DESIGN_LOOP_STATE.json` schema; killed motifs excluded at Steps 3/4), synthesis-cost ranking axis, availability-biased generation, and lab-failure feedback. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-06-06** — v0.2.1: structure image input and NMR prediction/verification. Schema files consolidated. See [CHANGELOG.md](CHANGELOG.md).

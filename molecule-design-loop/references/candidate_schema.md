@@ -295,7 +295,7 @@ Required notes per row:
 - `gemini_constraint_score`: `1-5`, assigned by Gemini against `DESIGN_SPEC_LOCKED.md`
 - `pareto_rank`: integer rank among hard-gate-passing candidates, or `not_ranked`
 - `confidence`: `high`, `medium`, or `low`
-- `evidence_level`: `experimental`, `computed_proxy`, `literature_only`, or `hypothesis_only`
+- `evidence_level`: `experimental`, `computed_proxy`, `literature_only`, or `hypothesis_only`. Must be `literature_only` or `hypothesis_only` when `claim_audit_flag: no_direct_evidence`.
 - `score_reason`: short rationale tied to the design constraints
 - `pass_hard_constraints`: `yes` or `no`
 - `synthesis_gate_status`: `pass`, `warn`, `fail`, or `not_run`

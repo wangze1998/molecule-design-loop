@@ -79,7 +79,7 @@ Reference protocols in `molecule-design-loop/references/`:
 | `nmr-prediction-protocol.md` | 9.7 — NMR prediction and verification |
 | `claim-audit-protocol.md` | 9.5 — evidence-to-claim matrix |
 | `gemini-scoring-protocol.md` | 11 — scoring rubric, Pareto ranking |
-| `design-loop-state-schema.md` | 1/3/4/12 — `DESIGN_LOOP_STATE.json` cross-round memory |
+| `design-loop-state-schema.md` | 1/3/4/12/13 — `DESIGN_LOOP_STATE.json` cross-round memory + `loop_calibration` |
 | `polymer-design-mode.md` | polymer/material branch |
 | `xtb-integrity-rules.md` | xTB recording requirements |
 
@@ -125,11 +125,11 @@ Prefer a project-local `molecule-design-stage/` directory with:
 10. Render `ROUND_N_CANDIDATE_GALLERY.html`.
 11. Pause for explicit user approval before any xTB run.
 12. Run xTB only on approved candidates.
-13. Run result-to-claim audit (Step 9.5).
+13. Run result-to-claim audit (Step 9.5) — mandatory when xTB ran, OR when a design objective is one the loop cannot evidence (affinity/potency/selectivity/catalysis/self-assembly/permeability/in vivo), even if xTB did not run.
 14. Run NMR prediction/verification if requested (Step 9.7).
 15. Ingest experimental feedback if available.
 16. Score with Gemini + Pareto ranking; synthesis practicality is a **dominance** criterion, not a tiebreaker — a candidate dominated on {property fit, cost, time, yield, hazard} is recorded in `practicality_dominance` and kept out of the top 3.
-17. Either iterate or write the final report. On iterate, write experimental `failure_mode` and adversarial `likely_lab_failure_mode` back into `DESIGN_LOOP_STATE.json` as structured `killed_motifs[]`/`failed_reactions[]` (Fix D).
+17. Either iterate or write the final report. Once experimental feedback exists, update `loop_calibration` in `DESIGN_LOOP_STATE.json` (promoted vs. attempted vs. worked) and report it in `DESIGN_REPORT.md`, unflattering results included. On iterate, write experimental `failure_mode` and adversarial `likely_lab_failure_mode` back into `DESIGN_LOOP_STATE.json` as structured `killed_motifs[]`/`failed_reactions[]` (Fix D).
 
 ## Hard Guardrails
 
@@ -140,6 +140,8 @@ Prefer a project-local `molecule-design-stage/` directory with:
 - If a hard constraint is ambiguous, stop and ask a targeted question before expensive calculations.
 - NMR predictions are Claude-native plausibility checks, not validated computational methods. Always label as "Claude-predicted."
 - Structure image extractions with low confidence require user confirmation before proceeding.
+- Never let a candidate reach a synthesis recommendation without stating which design objectives have no direct evidence. A clean descriptor profile and a literature analogy are not evidence of affinity, potency, selectivity, or self-assembly.
+- Report the loop's own hit rate honestly, including when it is bad. Never estimate a hit rate from predictions alone; use `not_computable` when there is no experimental feedback.
 - Synthesis practicality axes (`synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, `hazard_toxicity_flag`, `route_alternatives`) are heuristic estimates unless a retrosynthesis/CASP tool produced them — never present them as an optimality-guaranteed route Pareto front. Use `unknown` instead of inventing a yield or cost.
 
 ## Local Validation

@@ -4,6 +4,34 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.2.4 — 2026-08-21
+
+Makes the loop honest about itself: it must now report which design objectives it produced no evidence for, and it must keep score of how often its own recommendations actually worked. Prompted by Min et al., *From Static to Dynamic Structures: Improving Binding Affinity Prediction with Graph-Based Deep Learning* (Adv. Sci. 2024, DOI 10.1002/advs.202405404), whose virtual screen reported a real prospective hit rate — 20 candidates tested, 12 hits, 2 submicromolar — a kind of self-accounting this loop had no way to produce. Documentation-only; no Python changed.
+
+### Added
+
+- **`loop_calibration` block in `DESIGN_LOOP_STATE.json`** (`references/design-loop-state-schema.md`) — the loop's own track record: `rounds[]` (promoted / attempted / made / met-endpoint / hit rate), `prediction_vs_outcome[]` (predicted score and priority vs. observed status, tagged `confirmed` / `optimistic` / `pessimistic`), `known_bias[]`, and `calibration_summary`. This is pure aggregation of data the loop already collects — `ROUND_N_DECISION.md` for what was promoted, `ROUND_N_EXPERIMENT_RESULTS.csv` for what happened. No new measurement required.
+- New `auditor_flag` value `no_direct_evidence`, and a mandatory `Un-Evidenced Design Objectives` section in `ROUND_N_CLAIM_AUDIT.md`.
+- Two mandatory `DESIGN_REPORT.md` sections: un-evidenced objectives, and loop calibration.
+
+### Changed
+
+- **The claim audit now triggers on two cases, not one.** It was `mandatory when xTB runs`, which left a silent hole: a target-based design that never ran xTB got no audit at all, so a candidate could pass hard constraints, clear the synthesis gate, look clean on descriptors, and score 5 on literature analogy — with the loop having produced **zero evidence about the property the chemist actually cares about**, and nothing saying so. The audit is now also mandatory whenever a design objective is one the loop cannot evidence (binding affinity, potency, selectivity, catalytic activity, self-assembly, permeability, in vivo outcome), **even when xTB did not run**; its output is then the explicit declaration that no direct evidence exists.
+- A candidate flagged `no_direct_evidence` may still score well on constraint fit, but its `evidence_level` must be `literature_only` or `hypothesis_only`, and its supported claim must not describe the un-evidenced objective as computationally supported.
+- Step 11 lowers `confidence` when a `loop_calibration.known_bias` entry applies to a candidate's evidence type, so measured miscalibration feeds back into scoring.
+- Un-evidenced objectives are appended to `evidence_gaps` and named in the report's "what not to claim".
+
+### Honesty boundary
+
+- The calibration track record must be reported **including when it is unflattering**. A loop that hides its own miss rate is worse than no loop, because it spends bench time on false confidence. Hit rates from fewer than 5 attempted candidates must be labelled small-sample and not presented as a performance figure; `not_computable` / `null` are the correct answers when no experimental feedback exists. Never estimate a hit rate from predictions alone.
+
+### Notes
+
+- SKILL.md constants and Steps 9.5, 12, 13 updated; `claim-audit-protocol.md`, `design-loop-state-schema.md`, `gemini-scoring-protocol.md`, `candidate_schema.md`, and `AGENT_GUIDE.md` updated to match.
+- No binding-affinity or MD/ensemble prediction layer was added. That would need a protein structure, a docking or affinity model, and MD trajectories — hard dependencies of the same kind deliberately kept out in v0.2.3. The paper's ensemble insight remains a named optional upgrade in the report's recommended-next-calculation section, not a main-loop step.
+
+---
+
 ## v0.2.3 — 2026-08-10
 
 Extends the synthesis-economics work of v0.2.2 from a single cost scalar to a multi-objective practicality picture, and promotes practicality from a tiebreaker to a dominance criterion. Motivated by multi-objective synthesis planning work (Hastedt, Zhang & del Rio Chanona, *From Feasible to Practical: Pareto-Optimal Synthesis Planning*, arXiv:2605.07521), whose central point is that a route which merely exists is not a route worth running, and that scalarizing the route choice hides the trade-off. Documentation-only; no Python changed.

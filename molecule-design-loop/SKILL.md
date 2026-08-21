@@ -134,7 +134,8 @@ When a new helper program is needed:
 - **GEMINI_REVIEW_MODEL = `gemini-2.5-flash`** — default for all `mcp__gemini-review__*` calls
 - **GEMINI_ADVERSARIAL_REVIEW = mandatory** — after Step 3, every round; cannot be skipped
 - **NOVELTY_CHECK = mandatory** — after Step 5, every round; `prior_art_status` must be populated before gallery
-- **CLAIM_AUDIT = mandatory when xTB runs** — after Step 9; Gemini scoring in Step 11 must reference the audit
+- **CLAIM_AUDIT = mandatory when xTB runs, OR when a design objective is one the loop cannot evidence** (binding affinity, potency, selectivity, catalytic activity, self-assembly, permeability, in vivo outcome) — after Step 9; Gemini scoring in Step 11 must reference the audit
+- **LOOP_CALIBRATION = mandatory once experimental feedback exists** — Step 12 records promoted-vs-worked; Step 13 reports it, unflattering results included
 
 ---
 
@@ -296,9 +297,14 @@ See xTB integrity rules: [references/xtb-integrity-rules.md](references/xtb-inte
 
 ### 9.5. Result-to-claim audit
 
-**Mandatory when xTB runs.** Runs after xTB results, before Gemini scoring.
+**Mandatory in either of two cases**, before Gemini scoring:
 
-Outputs `ROUND_N_CLAIM_AUDIT.md` with an evidence-to-claim matrix and `auditor_flag` per candidate. Step 11 must read this file; Gemini may not assign a score ≥ 4 to any candidate with `auditor_flag: overclaim` unless corrected.
+1. **xTB ran** — audit what those numbers do and do not prove.
+2. **A design objective is one this loop cannot evidence at all** — binding affinity, potency, selectivity, catalytic activity, self-assembly, permeability, in vivo outcome. Mandatory **even when xTB did not run**: the audit's output is then the explicit declaration that no direct evidence exists.
+
+Case 2 closes a silent hole. A candidate can pass hard constraints, clear the synthesis gate, look clean on descriptors, and score 5 on literature analogy alone — while the loop has produced **zero evidence about the property the chemist actually cares about**, and nothing says so out loud.
+
+Outputs `ROUND_N_CLAIM_AUDIT.md` with an evidence-to-claim matrix, an `Un-Evidenced Design Objectives` section, and `auditor_flag` per candidate. Step 11 must read this file; Gemini may not assign a score ≥ 4 to any candidate with `auditor_flag: overclaim` unless corrected, and any candidate flagged `no_direct_evidence` must carry `evidence_level: literature_only` or `hypothesis_only`.
 
 For full Gemini prompt and output format, see [references/claim-audit-protocol.md](references/claim-audit-protocol.md).
 
@@ -358,6 +364,10 @@ Update `DESIGN_LOOP_STATE.json` per the contract in [references/design-loop-stat
 
 Whenever a structural pattern is implicated, record a SMARTS in the `killed_motifs[].smarts` field so the next round's Step 3 exclusion and Step 4 `--forbidden-smarts` union remove it automatically.
 
+**Record the loop's own track record.** Once any experimental feedback exists, update `loop_calibration` in `DESIGN_LOOP_STATE.json`: compare what the previous round promoted (`ROUND_N_DECISION.md`) against what the experiments returned (`ROUND_N_EXPERIMENT_RESULTS.csv`). Fill `rounds[]` (promoted / attempted / made / met-endpoint / hit rate) and `prediction_vs_outcome[]` (predicted score and priority vs. observed status, tagged `confirmed` / `optimistic` / `pessimistic`).
+
+This is pure aggregation of data already collected, and it answers the one question the loop otherwise cannot: **of the structures this loop told the chemist to make, what fraction were worth making?** A repeated `optimistic` pattern goes into `known_bias` and lowers `confidence` in the next round's scoring. Use `not_computable`/`null` when feedback is absent — never estimate a hit rate from predictions alone.
+
 ### 13. Stop and report
 
 Stop when one of these happens:
@@ -367,6 +377,11 @@ Stop when one of these happens:
 - `MAX_ROUNDS` is reached.
 
 Write `DESIGN_REPORT.md` with: top candidates and SMILES, why they satisfy the design file, synthesis-feasibility summary, experimental feedback summary, xTB proxy summary, NMR prediction/verification summary (if run), Gemini constraint scoring and Pareto rank, risks and what not to claim, recommended next experiment or higher-level calculation, and for polymers: oligomer-length sensitivity, conformer sampling, MD/CG simulation, polymerization feasibility check, or experimental characterization plan.
+
+**Two sections are mandatory and must not be softened:**
+
+- **Un-evidenced objectives** — every design objective the loop produced no direct evidence for, taken from the claim audit's `Un-Evidenced Design Objectives` section. Name the substitute that was used instead (literature analogy, descriptor proxy, scaffold precedent) and the measurement that would settle it.
+- **Loop calibration** — the `loop_calibration` track record from `DESIGN_LOOP_STATE.json`: promoted vs. attempted vs. worked, the hit rate, and any `known_bias`. **Report it honestly, including when it is unflattering.** A loop that hides its own miss rate is worse than no loop, because it spends bench time on false confidence. Label small samples (fewer than 5 attempted) as such and do not present them as a performance figure. When no experimental feedback exists yet, say so plainly rather than omitting the section.
 
 ---
 
