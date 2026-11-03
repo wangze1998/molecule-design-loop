@@ -145,6 +145,8 @@ Prefer a project-local `molecule-design-stage/` directory with:
 - Report the loop's own hit rate honestly, including when it is bad. Never estimate a hit rate from predictions alone; use `not_computable` when there is no experimental feedback.
 - Synthesis practicality axes (`synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, `hazard_toxicity_flag`, `route_alternatives`) are heuristic estimates unless a retrosynthesis/CASP tool produced them — never present them as an optimality-guaranteed route Pareto front. Use `unknown` instead of inventing a yield or cost.
 - Do not present a non-dominated front as a rich multi-axis trade-off without checking axis redundancy first, and do not let a round pass silently when the dominance criterion dominated nothing — a gate that filtered nothing must say so. Never report the practicality ablation only when it makes the loop look good.
+- Never map a failed or missing computation to a numeric sentinel (`0`, `-999`, an imputed mean). Use `fail` / `not_run` / `unknown` and exclude the row from numeric comparison. Sentinels sort to the extremes, so a crashed job becomes a top-ranked candidate. When two code paths read the same results file, they must handle failures, units, and precision identically.
+- Never normalize a descriptor against this round's min/max. Scoring anchors must be fixed (design spec, physical bound, named reference compound) or the score means nothing across rounds — and this loop is multi-round with cross-round memory.
 - Do not claim that correlated ranking axes "double-penalize" candidates under Pareto dominance. They do not; a duplicate axis creates no new way to be worse. The redundancy check exists for reporting honesty, not to fix the dominance math.
 
 ## Local Validation
