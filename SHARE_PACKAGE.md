@@ -16,11 +16,20 @@ This document records the current shareable package scope for `molecule-design-l
 Checked on `2026-06-06` (v0.2.1):
 
 - `molecule-design-loop/SKILL.md` in this repo matches the local source copy
-- `molecule-design-loop/references/` — all 13 protocol files synced (including `ranking-diagnostics-protocol.md` for the Step 11 axis-redundancy check and practicality ablation; `candidate-generation-schema.md` merged into `candidate_schema.md`)
+- `molecule-design-loop/references/` — all 12 protocol files synced (including new `structure-image-input-protocol.md` and `nmr-prediction-protocol.md`; `candidate-generation-schema.md` merged into `candidate_schema.md`)
 - `molecule-design-loop/templates/design_spec_template.md` synced (new image input and NMR sections)
 - `examples/example_design_spec.md` in this repo matches the local source copy
 - `optional-skills/research-lit/SKILL.md` matches the local context copy from `related-skills/research-lit.SKILL.md`
 - the public installer intentionally keeps the newer directory-based `--install-research-lit` behavior
+
+## Not Yet Verified Against The Local Source Tree
+
+Changes made in the repo since the `2026-06-06` check above, which have **not** been reconciled with the local source tree:
+
+- `v0.2.5` added a 13th protocol file, `molecule-design-loop/references/ranking-diagnostics-protocol.md`, and edited `SKILL.md`, `gemini-scoring-protocol.md`, `candidate_schema.md`, and `xtb-integrity-rules.md`.
+- `v0.2.2`–`v0.2.4` edits to `SKILL.md`, `design-loop-state-schema.md`, `synthesis-gate-schema.md`, and `claim-audit-protocol.md`.
+
+Re-run the local-vs-repo comparison and date a fresh check before treating the list above as current.
 
 ## Local-Only Items Not Bundled
 
