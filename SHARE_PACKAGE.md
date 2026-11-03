@@ -16,7 +16,7 @@ This document records the current shareable package scope for `molecule-design-l
 Checked on `2026-06-06` (v0.2.1):
 
 - `molecule-design-loop/SKILL.md` in this repo matches the local source copy
-- `molecule-design-loop/references/` — all 12 protocol files synced (including new `structure-image-input-protocol.md` and `nmr-prediction-protocol.md`; `candidate-generation-schema.md` merged into `candidate_schema.md`)
+- `molecule-design-loop/references/` — all 13 protocol files synced (including `ranking-diagnostics-protocol.md` for the Step 11 axis-redundancy check and practicality ablation; `candidate-generation-schema.md` merged into `candidate_schema.md`)
 - `molecule-design-loop/templates/design_spec_template.md` synced (new image input and NMR sections)
 - `examples/example_design_spec.md` in this repo matches the local source copy
 - `optional-skills/research-lit/SKILL.md` matches the local context copy from `related-skills/research-lit.SKILL.md`

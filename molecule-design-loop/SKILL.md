@@ -136,6 +136,9 @@ When a new helper program is needed:
 - **NOVELTY_CHECK = mandatory** — after Step 5, every round; `prior_art_status` must be populated before gallery
 - **CLAIM_AUDIT = mandatory when xTB runs, OR when a design objective is one the loop cannot evidence** (binding affinity, potency, selectivity, catalytic activity, self-assembly, permeability, in vivo outcome) — after Step 9; Gemini scoring in Step 11 must reference the audit
 - **LOOP_CALIBRATION = mandatory once experimental feedback exists** — Step 12 records promoted-vs-worked; Step 13 reports it, unflattering results included
+- **RANKING_DIAGNOSTICS = mandatory** — Step 11, every round: axis-redundancy matrix (or `not_assessed` below 8 candidates), dominated-count, and the property-only practicality ablation; reported even when the result is that practicality changed nothing
+- **AXIS_REDUNDANCY_FLOOR = 8 candidates** — below this, record `not_assessed`; between 8 and 15, label `small_sample` and do not collapse axes on it
+- **AXIS_REDUNDANCY_THRESHOLD = `|Kendall τ-b| ≥ 0.8 = redundant; 0.6-0.8 = coupled`**
 
 ---
 
@@ -338,6 +341,13 @@ Create `ROUND_N_DECISION.md`. Start a **fresh Gemini thread** (separate from Ste
 
 A high-performing but 8-step custom synthesis should not outrank a comparable 2-step shelf-available candidate — and a cheap fast candidate that is clearly worse on the design objective does not win by being cheap. When several candidates are non-dominated, present the trade-off instead of forcing a single winner.
 
+**Two mandatory ranking diagnostics (Fix E).** The ranking cannot audit itself; these two checks do, and both are reported whether or not they flatter the loop:
+
+- **Axis redundancy.** The five ranking axes are asserted to be independent considerations — that has never been checked. Compute Kendall's τ-b over the hard-constraint passers for all axis pairs (ordinal data with heavy ties; Pearson's r is not appropriate). Pairs at |τ-b| ≥ 0.8 carry one piece of information, not two, and the trade-off narrative must stop describing them as separate. Below 8 candidates, record `not_assessed` rather than computing noise. Separately, report `candidates_dominated / candidates_assessed`: with five coarse ordinal axes it is entirely possible that **nothing** is dominated, meaning the practicality gate did not bind at all this round. Say so when it happens.
+- **Practicality ablation.** Also rank the same candidates on property fit alone (`shadow_rank_property_only`), ignoring every practicality axis and the make/buy tiebreak. Report both top-3 sets side by side, and for each candidate the practicality constraint pushed out, name the concrete value that did it. If the two rankings agree, state that practicality did not change the recommendation this round — an identical result is informative, not a failure to hide.
+
+For the diagnostics' method, thresholds, sample-size floors, and the limits of what each one proves, see [references/ranking-diagnostics-protocol.md](references/ranking-diagnostics-protocol.md).
+
 For full Gemini prompt, scoring rubric (1-5), all required output fields, and Pareto ranking rules, see [references/gemini-scoring-protocol.md](references/gemini-scoring-protocol.md).
 
 ### 12. Iterate
@@ -381,6 +391,7 @@ Write `DESIGN_REPORT.md` with: top candidates and SMILES, why they satisfy the d
 **Two sections are mandatory and must not be softened:**
 
 - **Un-evidenced objectives** — every design objective the loop produced no direct evidence for, taken from the claim audit's `Un-Evidenced Design Objectives` section. Name the substitute that was used instead (literature analogy, descriptor proxy, scaffold precedent) and the measurement that would settle it.
+- **Ranking diagnostics** — the final round's axis-redundancy verdict (which ranking axes turned out to carry the same information, or `not_assessed` below the sample floor), how many candidates the practicality criterion actually dominated, and the practicality-ablation result: which high-scoring candidates the constraint kept off the bench and why, or an explicit statement that it changed nothing. See [references/ranking-diagnostics-protocol.md](references/ranking-diagnostics-protocol.md).
 - **Loop calibration** — the `loop_calibration` track record from `DESIGN_LOOP_STATE.json`: promoted vs. attempted vs. worked, the hit rate, and any `known_bias`. **Report it honestly, including when it is unflattering.** A loop that hides its own miss rate is worse than no loop, because it spends bench time on false confidence. Label small samples (fewer than 5 attempted) as such and do not present them as a performance figure. When no experimental feedback exists yet, say so plainly rather than omitting the section.
 
 ---

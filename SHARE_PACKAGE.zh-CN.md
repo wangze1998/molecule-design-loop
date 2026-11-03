@@ -16,7 +16,7 @@
 核对日期：`2026-06-06`（v0.2.1）
 
 - 仓库中的 `molecule-design-loop/SKILL.md` 与本地主源文件一致
-- `molecule-design-loop/references/` — 全部 12 个协议文件已同步（含新增 `structure-image-input-protocol.md` 和 `nmr-prediction-protocol.md`；`candidate-generation-schema.md` 已合并至 `candidate_schema.md`）
+- `molecule-design-loop/references/` — 全部 13 个协议文件已同步（含新增 `ranking-diagnostics-protocol.md`，用于步骤 11 的轴冗余检验与实用性消融；`candidate-generation-schema.md` 已合并至 `candidate_schema.md`）
 - `molecule-design-loop/templates/design_spec_template.md` 已同步（含新增图像输入和 NMR 配置节）
 - 仓库中的 `examples/example_design_spec.md` 与本地示例文件一致
 - `optional-skills/research-lit/SKILL.md` 与本地 `related-skills/research-lit.SKILL.md` 的内容一致

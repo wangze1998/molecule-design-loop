@@ -4,6 +4,38 @@
 
 ---
 
+## v0.2.5 — 2026-11-03
+
+让排序能够审计自己。v0.2.3 断言五条实用性轴构成一个有意义的权衡、并且按它们排序能节省台架时间——这两条断言从未被检验过。本次发布加入检验它们的两个低成本诊断。灵感来自 Cai 等，*AI-guided discovery of self-assembled monolayers combining synthetic accessibility and interfacial stability for perovskite solar cells*（Nat. Synth. 2026，DOI 10.1038/s44160-026-01203-4）——该文在信任自己的复合评分之前先验证了描述符之间互不冗余，并在去掉可合成性项后重新排序，发现此时的高分候选全都依赖买不到的前体、根本做不出来。纯文档改动，未改动 Python。
+
+### 新增
+
+- **`references/ranking-diagnostics-protocol.md`** —— 两个诊断的方法、阈值、样本量下限与诚实边界。
+- **轴冗余检验（Step 11，每轮）。** 对通过硬约束的候选，在五条排序轴上两两计算 Kendall τ-b。之所以用 τ-b 而非 Pearson r：这些轴是只有三到四个等级的**有序分类**变量、并列极多，而 Pearson r 不适用于有序类别。`|τ-b| ≥ 0.8` 判为 `redundant`，`0.6-0.8` 判为 `coupled`。候选数低于 8 时根本不计算（记 `not_assessed`）；8 到 15 之间计算但标注 `small_sample`，且不得据此合并任何一条轴。
+- **被支配数的强制报告。** `candidates_dominated / candidates_assessed` 现为必填行。五条粗粒度有序轴加上为数不多的通过者，并列情况很常见，**完全可能没有任何候选被支配**——此时实用性判据根本没有起作用，本轮必须明说。
+- **实用性消融（影子排序）。** 新增候选级字段 `shadow_rank_property_only` 与 `excluded_by_practicality`，以及 `ROUND_N_DECISION.md` 中必填的 `Practicality Ablation` 章节：并排列出"仅按性质契合度"的前三与最终前三，并为每一个被挤出的候选写明具体值（`custom_synthesis, 8 steps, high_hazard`），不接受"实用性考虑"这种含糊说法。
+- `ROUND_N_DECISION.md` 新增两个轮级必填章节（`Axis Redundancy`、`Practicality Ablation`），`DESIGN_REPORT.md` 新增 `Ranking diagnostics` 章节。
+- 新增常量 `RANKING_DIAGNOSTICS`、`AXIS_REDUNDANCY_FLOOR`、`AXIS_REDUNDANCY_THRESHOLD`。
+
+### 变更
+
+- 实用性排除从此被视为**可被校准证伪的预测**。当实验反馈显示某个被实用性排除的候选其实能成，这条会写进 `loop_calibration.known_bias`，作为"该类化学的成本/危害估计过于保守"的证据。无需改 schema——`known_bias` 本就是自由文本数组。
+
+### 正确性说明
+
+- 冗余轴**不会**改变 Pareto 支配关系。完全重复的一条轴不会制造出任何新的"更差"的方式，因此支配关系不受影响；"相关的轴会对候选双重惩罚"这个直觉说法是**错的**，protocol 里明确写出了这一点。做冗余检验的真正理由是：当两条轴其实只承载一份信息，却把它当作五轴权衡呈现给化学家时，会夸大实际在起作用的考量数量——这是**报告诚实性**问题，不是数学问题。（在标量复合评分下冗余确实等于重复加权；本 loop 不用标量复合，但若将来引入，这个矩阵是定权重的前置条件。）
+
+### 诚实边界
+
+- 两个诊断无论结果是否好看都要报告。即使消融显示实用性什么都没改变，也必须写出来——只在好看时才报告，那是广告不是诊断。冗余结论只描述**当前设计空间在当前样本量下**的情况，绝不可当作既成事实带入下一轮。两个诊断都不能证明最终排序是**对的**；只有实验反馈能，那是 `loop_calibration` 的职责。
+
+### 说明
+
+- 更新 SKILL.md 的 Step 11 与 Step 13；`gemini-scoring-protocol.md`、`candidate_schema.md`、`AGENT_GUIDE.md` 同步更新。
+- 本次**有意未纳入**：同一篇文章的片段库与组合枚举机制（片段挖掘、专家剪枝、在角色标注骨架上组合装配）。那需要新增工作流步骤、新增产出文件、以及两个带测试的 RDKit 脚本，改动面大得多，留待后续版本。
+
+---
+
 ## v0.2.4 — 2026-08-21
 
 让 loop 对自己诚实：它现在必须报告"哪些设计目标它其实没有任何证据"，并且必须记录"自己推荐过的结构后来到底成了多少"。灵感来自 Min 等，*From Static to Dynamic Structures: Improving Binding Affinity Prediction with Graph-Based Deep Learning*（Adv. Sci. 2024，DOI 10.1002/advs.202405404）——该文的虚拟筛选报告了真实的前瞻性命中率（20 个候选实验验证、12 个 hit、2 个亚微摩尔），而这种自我核算恰恰是本 loop 此前无法产出的。纯文档改动，未改动 Python。

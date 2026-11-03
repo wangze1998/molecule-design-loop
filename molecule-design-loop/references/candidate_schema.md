@@ -287,13 +287,15 @@ Rules:
 
 Use one table:
 
-| candidate_id | gemini_constraint_score | pareto_rank | confidence | evidence_level | score_reason | pass_hard_constraints | synthesis_gate_status | xtb_status | decision | evidence | unsupported claims | uncertainty_reason | revision_hint | next action |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| candidate_id | gemini_constraint_score | pareto_rank | shadow_rank_property_only | excluded_by_practicality | confidence | evidence_level | score_reason | pass_hard_constraints | synthesis_gate_status | xtb_status | decision | evidence | unsupported claims | uncertainty_reason | revision_hint | next action |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 
 Required notes per row:
 
 - `gemini_constraint_score`: `1-5`, assigned by Gemini against `DESIGN_SPEC_LOCKED.md`
 - `pareto_rank`: integer rank among hard-gate-passing candidates, or `not_ranked`
+- `shadow_rank_property_only`: integer rank on property fit alone — every practicality axis and the make/buy tiebreak ignored — or `not_ranked`. The ablation that makes the practicality constraint's effect visible.
+- `excluded_by_practicality`: `no`, or the concrete values that pushed the candidate out of the top 3 relative to its shadow rank (e.g. `custom_synthesis, 8 steps, high_hazard`). A bare "practicality concerns" is not an acceptable entry.
 - `confidence`: `high`, `medium`, or `low`
 - `evidence_level`: `experimental`, `computed_proxy`, `literature_only`, or `hypothesis_only`. Must be `literature_only` or `hypothesis_only` when `claim_audit_flag: no_direct_evidence`.
 - `score_reason`: short rationale tied to the design constraints
@@ -317,3 +319,12 @@ Allowed decisions:
 - `control`
 - `needs_higher_level_calc`
 - `needs_route_work`
+
+### Required round-level sections
+
+Beyond the per-candidate table, `ROUND_N_DECISION.md` must carry two diagnostic sections every round (see [ranking-diagnostics-protocol.md](ranking-diagnostics-protocol.md)):
+
+- **Axis Redundancy** — the Kendall τ-b matrix over the five ranking axes (or `not_assessed (n=<N>, below floor)` under 8 hard-constraint passers), any pair flagged `redundant` or `coupled`, and the `candidates_dominated / candidates_assessed` count. When nothing was dominated, state explicitly that the practicality axes did not constrain the ranking this round.
+- **Practicality Ablation** — the property-only top 3 and the final top 3 side by side, each practicality exclusion named with its concrete values, and one sentence on what the constraint bought or cost. When the two rankings agree, say that plainly rather than omitting the section.
+
+Both sections are written whether or not the result reflects well on the loop.

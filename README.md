@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.4-blue)
+![Status](https://img.shields.io/badge/status-v0.2.5-blue)
 
 Open Codex skill for constraint-driven molecule and polymer design. Integrates the user's Zotero library and local Gemini MCP for dual-stream literature intelligence, adversarial chemistry review, novelty checking, and result-to-claim auditing — alongside RDKit filtering, visual candidate review, and explicit user approval before xTB. Now supports structure image input and Claude-native NMR prediction.
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Current release: v0.2.4** (2026-08-21). New: the loop is now honest about itself. It must declare which design objectives it produced **no evidence** for — the claim audit now runs even without xTB whenever the objective is affinity, potency, selectivity, self-assembly or similar — and it keeps a `loop_calibration` track record of how often its own recommendations actually worked, reported unflattering results included. See [CHANGELOG.md](CHANGELOG.md).
+> **Current release: v0.2.5** (2026-11-03). New: the ranking now audits itself. Two cheap diagnostics run every round — a **Kendall τ-b axis-redundancy check** (are the five practicality axes really five independent considerations, and did the dominance criterion actually dominate anything?) and a **practicality ablation** that re-ranks on property fit alone to show exactly which high-scoring candidates the practicality constraint kept off the bench. Both are reported whether or not they flatter the loop. See [CHANGELOG.md](CHANGELOG.md).
 > **Human approval stays mandatory before xTB.** **Zotero MCP and Gemini MCP must be configured** for the new steps — the skill falls back gracefully when they are unavailable.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -17,12 +17,14 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release: `v0.2.4` — evidence-gap declaration + loop self-calibration
+- Current release: `v0.2.5` — ranking diagnostics: axis-redundancy check + practicality ablation
 - Repo focus: modular Codex skill for Zotero-grounded, adversarially reviewed molecular design
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## Release Track
+
+**v0.2.5** (2026-11-03) — The ranking audits itself. Kendall τ-b redundancy matrix over the five ranking axes (τ-b, not Pearson — the axes are ordinal with heavy ties), mandatory `candidates_dominated / candidates_assessed` reporting so a dominance criterion that dominated nothing cannot pass as a working gate, and a property-only `shadow_rank_property_only` ablation naming every candidate the practicality constraint excluded and why.
 
 **v0.2.4** (2026-08-21) — The loop must now say what it does *not* know. Claim audit triggers on un-evidenceable objectives (affinity, potency, selectivity, self-assembly…) even when xTB never ran, emitting `no_direct_evidence`. New `loop_calibration` block tracks promoted-vs-worked and prediction-vs-outcome, reported honestly in `DESIGN_REPORT.md`.
 
@@ -54,6 +56,7 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
+- **2026-11-03** — v0.2.5: the ranking audits itself — axis-redundancy check, dominated-count reporting, and a practicality ablation that shows what the constraint actually cost. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-08-21** — v0.2.4: un-evidenced design objectives must be declared (claim audit no longer requires xTB to fire), and the loop keeps score of its own hit rate. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-08-10** — v0.2.3: synthesis practicality is a dominance criterion, not a tiebreaker; yield and hazard axes added; route trade-offs recorded instead of collapsed into one cost number. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-06-12** — v0.2.2: enforced cross-round failure memory (`DESIGN_LOOP_STATE.json` schema; killed motifs excluded at Steps 3/4), synthesis-cost ranking axis, availability-biased generation, and lab-failure feedback. See [CHANGELOG.md](CHANGELOG.md).
@@ -84,6 +87,8 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 **NMR prediction and verification** (Step 9.7, optional): Claude predicts 1H/13C NMR spectra for top candidates using its internal chemistry knowledge. When experimental NMR data is available, a predicted-vs-experimental comparison produces a structural verification status. Based on Anthropic's "Making Claude a Chemist" research (±0.079 ppm 1H accuracy).
 
 **Iterative scoring** (Step 11): Gemini reads design spec + adversarial review + novelty check + claim audit + NMR verification in a fresh thread. Pareto ranking across hard-constraint pass, synthesis feasibility, evidence level, and soft preferences.
+
+**Ranking diagnostics** (Step 11): the ranking cannot audit itself, so two checks do. An axis-redundancy matrix (Kendall τ-b) asks whether the five ranking axes carry independent information or whether the trade-off is narrower than it looks, and reports how many candidates were actually dominated — if none were, the practicality gate did not bind and the round says so. A practicality ablation re-ranks on property fit alone and names every high-scoring candidate the constraint kept off the bench, with the concrete values responsible. Both are reported even when the answer is "practicality changed nothing".
 
 Both small-molecule and polymer/material design are supported. Polymer candidates use finite capped oligomers for RDKit/xTB; polymer-level properties that cannot be inferred from surrogates are listed as non-xTB targets.
 

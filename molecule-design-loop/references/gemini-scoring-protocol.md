@@ -47,6 +47,8 @@ prompt: [paste DESIGN_SPEC_LOCKED.md + ROUND_N_FILTERED.csv key columns + ROUND_
 - `xTB_status`: pass/warn/fail/not_run
 - `nmr_verification_status`: confirmed/consistent/inconclusive/mismatch/not_run
 - `pareto_rank`: integer rank or `not_ranked`
+- `shadow_rank_property_only`: integer rank on property fit alone, ignoring every practicality axis and the make/buy tiebreak, or `not_ranked`
+- `excluded_by_practicality`: `no`, or the concrete reason it fell out of the top 3 relative to its shadow rank (e.g. `custom_synthesis, 8 steps, high_hazard`) — never a bare "practicality concerns"
 - `evidence_level`: experimental / computed_proxy / literature_only / hypothesis_only
 - `confidence`: high/medium/low
 - `uncertainty_reason`
@@ -71,3 +73,14 @@ A high-performing 8-step custom synthesis must not outrank a comparable 2-step s
 The front is a set of honest offers, not a single winner: when several candidates are non-dominated, present the trade-off rather than forcing a rank-1 pick.
 
 Do not let a strong xTB output override a violated hard constraint or failed synthesis gate.
+
+## Mandatory ranking diagnostics
+
+The ranking above cannot audit itself. Two checks run alongside it every round and are reported in `ROUND_N_DECISION.md` regardless of outcome:
+
+1. **Axis redundancy** — Kendall's τ-b across the five ranking axes over hard-constraint passers, plus `candidates_dominated / candidates_assessed`. The axes are *asserted* to be independent considerations; this is the only thing that checks whether they are. If nothing was dominated, the practicality criterion did not bind this round and the report must say so.
+2. **Practicality ablation** — a second ranking on property fit alone (`shadow_rank_property_only`), with the two top-3 sets shown side by side and every practicality exclusion named concretely.
+
+Note for the scorer: redundant axes do **not** change which candidate dominates which — a duplicate axis creates no new way to be worse. The reason to check is reporting honesty: presenting a five-axis trade-off when two axes are one axis overstates how many distinct considerations are in play.
+
+Full method, thresholds, sample-size floors, and the limits of each diagnostic: [ranking-diagnostics-protocol.md](ranking-diagnostics-protocol.md).

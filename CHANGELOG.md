@@ -4,6 +4,38 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.2.5 — 2026-11-03
+
+Makes the ranking audit itself. v0.2.3 asserted that five practicality axes form a meaningful trade-off and that ranking by them protects bench time; neither claim was ever checked. This release adds the two cheap diagnostics that check them. Prompted by Cai et al., *AI-guided discovery of self-assembled monolayers combining synthetic accessibility and interfacial stability for perovskite solar cells* (Nat. Synth. 2026, DOI 10.1038/s44160-026-01203-4), which verified descriptor non-redundancy before trusting its composite score, and re-ranked with the synthesizability term removed — revealing that the top candidates without it relied on inaccessible precursors and could not be made. Documentation-only; no Python changed.
+
+### Added
+
+- **`references/ranking-diagnostics-protocol.md`** — method, thresholds, sample-size floors, and honesty boundaries for both new checks.
+- **Axis-redundancy check (Step 11, every round).** Kendall's τ-b across the five ranking axes over hard-constraint passers. τ-b rather than Pearson's r because the axes are ordinal with three or four levels and heavy ties; Pearson's r is not appropriate for ordered categories. `|τ-b| ≥ 0.8` = `redundant`, `0.6-0.8` = `coupled`. Below 8 candidates the matrix is not computed at all (`not_assessed`); between 8 and 15 it is labelled `small_sample` and may not be used to collapse an axis.
+- **Dominated-count reporting.** `candidates_dominated / candidates_assessed` is now a required line. With five coarse ordinal axes and a handful of passers, ties are common and it is entirely possible that nothing is dominated — in which case the practicality criterion did not bind and the round must say so.
+- **Practicality ablation (shadow ranking).** New per-candidate fields `shadow_rank_property_only` and `excluded_by_practicality`, plus a mandatory `Practicality Ablation` section in `ROUND_N_DECISION.md` showing the property-only top 3 and the final top 3 side by side, with each exclusion named by its concrete values (`custom_synthesis, 8 steps, high_hazard`), not as "practicality concerns".
+- Two required round-level sections in `ROUND_N_DECISION.md` (`Axis Redundancy`, `Practicality Ablation`) and a `Ranking diagnostics` section in `DESIGN_REPORT.md`.
+- Constants `RANKING_DIAGNOSTICS`, `AXIS_REDUNDANCY_FLOOR`, `AXIS_REDUNDANCY_THRESHOLD`.
+
+### Changed
+
+- Practicality exclusions are now treated as predictions that calibration can falsify. When experimental feedback shows a practicality-excluded candidate would have worked, that goes into `loop_calibration.known_bias` as evidence the cost/hazard estimates are too conservative for that chemistry. No schema change — `known_bias` was already a free-text array.
+
+### Correctness note
+
+- Redundant axes do **not** change the Pareto dominance relation. A perfectly duplicated axis creates no new way for a candidate to be worse, so dominance is unaffected; the intuitive claim that correlated axes "double-penalize" candidates is wrong and the protocol says so explicitly. The redundancy check exists because presenting a five-axis trade-off when two axes carry one piece of information overstates how many distinct considerations are in play — a reporting-honesty problem, not a math problem. (Redundancy *would* be double-weighting under a scalar composite; this loop does not use one, and the matrix is a precondition if it ever does.)
+
+### Honesty boundary
+
+- Both diagnostics are reported whether or not they flatter the loop. An ablation that shows practicality changed nothing must still be written out — reporting it only when it looks impressive is advertising, not diagnostics. A redundancy verdict describes this design space at this sample size and must never be carried forward as established fact. Neither diagnostic shows the final ranking is *correct*; only experimental feedback does that, which is what `loop_calibration` is for.
+
+### Notes
+
+- SKILL.md Step 11 and Step 13 updated; `gemini-scoring-protocol.md`, `candidate_schema.md`, and `AGENT_GUIDE.md` updated to match.
+- Deliberately not included: the descriptor-library and fragment-enumeration machinery from the same paper (fragment mining, expert prune, combinatorial assembly on a role-labelled scaffold). That needs a new workflow step, a new artifact, and two new RDKit scripts with tests — a larger change held for a later release.
+
+---
+
 ## v0.2.4 — 2026-08-21
 
 Makes the loop honest about itself: it must now report which design objectives it produced no evidence for, and it must keep score of how often its own recommendations actually worked. Prompted by Min et al., *From Static to Dynamic Structures: Improving Binding Affinity Prediction with Graph-Based Deep Learning* (Adv. Sci. 2024, DOI 10.1002/advs.202405404), whose virtual screen reported a real prospective hit rate — 20 candidates tested, 12 hits, 2 submicromolar — a kind of self-accounting this loop had no way to produce. Documentation-only; no Python changed.
