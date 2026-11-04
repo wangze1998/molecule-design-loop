@@ -1,456 +1,276 @@
 ---
 name: "molecule-design-loop"
-description: "Autonomous small-molecule or polymer/materials design loop with dual literature intelligence: mines the user's Zotero library for curated personal knowledge, and independently searches for the latest and most authoritative papers in the field. Both sources inform candidate generation in parallel — Zotero supplies proven scaffolds and personal SAR context, active search supplies recent advances and field consensus. Workflow: Zotero extraction + active literature search (parallel) -> design spec lock -> unified literature packet -> candidates -> RDKit filtering -> synthesis-feasibility gate -> visual gallery -> user approval -> optional xTB -> optional experimental feedback -> Gemini/Pareto scoring -> iterative design."
+description: "Constraint-driven design loop for small molecules, polymers and materials. Use when the user asks to design molecules, ligands, inhibitors, hosts, catalysts, dyes, photoswitches, monomers, repeat units or copolymers against a written design spec; for SAR-guided analog series; or for an autonomous design round with literature grounding, RDKit filtering, synthesis-feasibility triage, structural review before calculation, optional xTB evidence, and scored iteration. Mines the user's Zotero library and searches current literature in parallel. Triggers: molecule design loop, design a series, 分子设计, 设计一轮候选物, candidate generation, scaffold optimisation, polymer repeat-unit design."
+license: "MIT"
+metadata:
+  version: "0.3.0"
+  requires: "Python 3.9+, RDKit; PyYAML for build_candidates.py"
 ---
 
 # Molecule Design Loop
 
-Use this skill when the user provides a molecule design constraint file and wants an autonomous loop:
+Turns a written design spec into reviewable candidate rounds. Literature grounds the
+candidates, deterministic code filters them, a human approves the structures, and
+scoring decides what the next round changes.
 
-`[optional image extraction] -> design_spec.md -> mode selection -> [Zotero extraction || active literature search] -> unified LIT_PACKET -> candidates -> RDKit filtering -> synthesis-feasibility gate -> HTML gallery -> user structural approval -> optional xTB evidence -> optional NMR prediction/verification -> optional experimental feedback -> Gemini/Pareto decision -> next design round`
+```text
+design_spec.md → [Zotero ‖ active search] → LIT_PACKET → candidates → adversarial review
+→ RDKit filter → synthesis gate → novelty check → gallery → USER APPROVAL
+→ xTB → claim audit → scoring + diagnostics → next round or report
+```
 
-**Dual literature philosophy**: Design knowledge comes from two complementary and equally important streams that run in parallel:
+Literature comes from two streams that run in parallel and rank equally: the user's
+**Zotero library** (what they have read and trust) and an **active search** (recent
+and landmark work they may not have). Neither is subordinate; `LIT_PACKET.md` merges
+both and flags contradictions rather than silently picking one.
 
-- **Zotero stream** — the user's personal curated library: papers they have read, annotated, and considered relevant. Captures personal familiarity, specific scaffolds of interest, and known context. Not complete by design.
-- **Active search stream** — independent search for the latest papers (last 1-2 years) and the most authoritative/highly-cited works in the field. Captures recent advances, field consensus, and papers the user may not have encountered yet.
+## Modes
 
-Neither stream is subordinate to the other. The unified `LIT_PACKET.md` synthesizes both.
+Pick from the request and the spec; ask one short question if genuinely ambiguous.
 
-## Design Mode Hierarchy
+- **Small molecule** — a discrete molecule, ligand, inhibitor, host/guest, catalyst,
+  dye, photoswitch, or a scaffold series with no repeat-unit intent.
+- **Polymer / material** — mentions polymer, oligomer, monomer, repeat unit,
+  copolymer, BigSMILES, DP, Mn, dispersity, tacticity, morphology, film, or a
+  polymerisation route. See [references/polymer-design-mode.md](references/polymer-design-mode.md).
 
-Small-molecule design and polymer/material design are sibling modes. Do not nest one under the other.
+These are siblings. Do not run polymer work as a sub-case of small-molecule work.
 
-Automatically select the mode from the user command and `design_spec.md`:
+## Roles
 
-- **Small-Molecule Design Mode**: use when the request is for a discrete molecule, ligand, inhibitor, host/guest molecule, catalyst, dye, photoswitch, supramolecular building block, or a SMILES/scaffold series with no polymer/repeat-unit intent.
-- **Polymer Design Mode**: use when the request mentions polymer, oligomer, monomer series, repeat unit, copolymer, material repeat unit, BigSMILES, DP, Mn, dispersity, tacticity, regioregularity, morphology, film, bulk material, or polymerization route.
-- If both modes appear or the mode is ambiguous, ask one short targeted question before expensive steps.
+| Actor | Does | Must not |
+|---|---|---|
+| Claude | orchestrates files, scripts, tables, iteration | review its own candidates |
+| Zotero MCP | personal curated knowledge, scaffolds, SAR context | stand in for the field |
+| Gemini research | active search, prior-art checks | — |
+| Gemini review | independent adversarial critique and claim audit | receive a Claude-written summary |
+| RDKit | parsing, dedup, descriptors, depiction | judge synthesisability |
+| Synthesis gate | plausible make/buy route before promotion | prove a route works |
+| xTB | low-cost proxies on finite capped models | prove binding, assembly or mechanism |
+| User | owns every synthesis decision | — |
 
-## Role Split
+## Working rules
 
-- **Zotero MCP** (`mcp__zotero-mcp__*`) supplies personal curated knowledge: scaffolds the user has studied, SAR context from their reading, synthesis routes from papers they collected. Runs in parallel with active search.
-- **Gemini research** (`mcp__gemini-research__literature_search`, `prior_art_search`) handles active literature search and novelty checks on candidate structures before gallery promotion.
-- **Gemini adversarial reviewer** (`mcp__gemini-review__review`) is an independent cross-model critic that challenges candidate design rationale, synthesis claims, and evidence-to-claim mappings. Receives raw artifacts directly — never a Claude-written summary.
-- **Claude** orchestrates files, scripts, filters, xTB jobs, tables, and iteration. Does not self-review its own candidates.
-- **RDKit** performs deterministic molecule parsing, deduplication, and descriptor checks.
-- **Synthesis-feasibility gate** checks whether a candidate has a plausible make/buy route before promotion.
-- **xTB** provides low-cost computational proxies only, usually on finite capped molecules or oligomer models for polymers.
-- **Gemini** performs constraint scoring; Pareto/confidence fields make tradeoffs and uncertainty explicit.
-- The user remains the scientific owner of final synthesis decisions.
+This loop produces large files. Reading them whole is the main way a run becomes
+expensive, and cost here is paid per step for the rest of the session.
 
-Do not treat xTB as proof of binding, assembly, reactivity, selectivity, or mechanism.
-Do not treat heuristic synthetic-accessibility scores as proof that a molecule can actually be made.
+**Read narrowly.** Open the one reference the current step names, not the folder.
+Never `cat` a candidate CSV, a gallery, or a literature packet — use
+`scripts/inspect_round.py` (`summary`, `cols`, `row`, `grep`, `check`, `html`).
+If a command's output was too long and got saved to a file, do not read that file
+back; re-run the command narrower.
 
-## Inputs
+**Generate, don't type.** Derived data belongs to a script. Write the judgement
+fields in a config and let `scripts/build_candidates.py` produce the SMILES copies,
+atom indices, repeat-unit drawings and per-round boilerplate. Prose repeated across
+rows goes in the config's `text_blocks` once.
 
-Primary inputs:
-- a Markdown design constraint file, usually `design_spec.md`;
-- the user's Zotero library, accessed via `mcp__zotero-mcp__*` tools.
+**Pass paths, not payloads.** Build Gemini packets with
+`scripts/build_gemini_inputs.py` and hand over the path. Never retype a CSV into a
+prompt — the "raw artifacts, never a summary" rule is about what the reviewer reads,
+not about retyping it into the conversation.
 
-Optional inputs:
-- seed SMILES or ChemDraw-selected SMILES;
-- **structure images** (PNG/JPG/PDF of journal figures, ChemDraw screenshots, or hand-drawn structures) — Claude extracts SMILES directly from the image; see [references/structure-image-input-protocol.md](references/structure-image-input-protocol.md);
-- Zotero collection name or tags to restrict library search scope;
-- local PDFs or notes not yet in Zotero;
-- prior design logs;
-- known failed motifs;
-- known building blocks, vendor-available compounds, prior routes, failed reactions, or route constraints;
-- prior experimental results (synthesis success/failure, yield, purity, assay values, characterization);
-- desired xTB proxy metrics;
-- project-local xTB runner scripts;
-- polymer repeat units, monomers, end groups, target DP range, polymerization route, tacticity or morphology constraints when the target is a polymer/material.
-
-If no design file exists, first run Zotero extraction (Step 1.5) to identify the research theme, then create a design spec from `templates/design_spec_template.md` pre-populated with Zotero-extracted scaffolds. Ask the user to confirm before expensive calculations.
-
-## Output Layout
-
-All outputs go in `molecule-design-stage/`:
-
-- `ZOTERO_KNOWLEDGE_PACKET.md` — design knowledge from the Zotero library (personal stream)
-- `ZOTERO_SEED_SMILES.csv` — scaffolds and seed structures from Zotero
-- `ACTIVE_SEARCH_PACKET.md` — design knowledge from active literature search (field-wide stream)
-- `DESIGN_SPEC_LOCKED.md`
-- `LIT_PACKET.md` — unified merge of both streams
-- `ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md`
-- `ROUND_N_NOVELTY_CHECK.md`
-- `ROUND_N_CLAIM_AUDIT.md`
-- `ROUND_N_CANDIDATES.csv`
-- `ROUND_N_FILTERED.csv`
-- `ROUND_N_SYNTHESIS_FEASIBILITY.csv`
-- `ROUND_N_CANDIDATE_GALLERY.html`
-- `ROUND_N_POLYMER_DESIGN.html` (polymer/material runs)
-- `ROUND_N_XTB_APPROVAL.md`
-- `ROUND_N_XTB_RESULTS.csv`
-- `ROUND_N_NMR_PREDICTIONS.csv` (when NMR prediction is requested or experimental NMR is available)
-- `ROUND_N_NMR_VERIFICATION.md` (when experimental NMR data is compared against predictions)
-- `ROUND_N_EXPERIMENT_RESULTS.csv` (when user provides experimental feedback)
-- `IMAGE_EXTRACTED_SMILES.csv` (when structure images are provided as input)
-- `ROUND_N_GEMINI_INPUT.md`
-- `ROUND_N_DECISION.md`
-- `DESIGN_LOOP_STATE.json` — cross-round memory; structure defined in [references/design-loop-state-schema.md](references/design-loop-state-schema.md)
-- `DESIGN_REPORT.md`
-- `xtb_jobs/`
-
-Bundled helpers:
-- `scripts/rdkit_filter_candidates.py` — annotates and filters candidate CSV files with RDKit descriptors
-- `scripts/render_candidate_gallery.py` — renders candidate CSV rows into a standalone RDKit HTML gallery
-- `scripts/ranking_diagnostics.py` — deterministic Step 11 diagnostics: practicality dominance, `pareto_rank`, `shadow_rank_property_only`, `excluded_by_practicality`, the Kendall τ-b redundancy matrix, and `candidates_dominated / candidates_assessed` (standard library only; no RDKit, no LLM)
-- `references/candidate_schema.md` — CSV contracts
-- `references/design-loop-state-schema.md` — `DESIGN_LOOP_STATE.json` cross-round memory contract
-- `templates/design_spec_template.md` — starting constraint file template
-- `templates/xtb_approval_template.md` — approval checkpoint template before xTB
-
-If a local `research-wiki/` exists, also update `research-wiki/design-log.md` and `research-wiki/events.jsonl`. Use the shared event schema in `../shared-references/events-jsonl.md`.
-
-## Helper Script Rules
-
-When a new helper program is needed:
-- prefer `one main entrypoint + reusable modules + per-run input config only`;
-- do not hard-code round number, molecule, file path, threshold set, or temporary local layout;
-- prefer parameterized inputs, documented CLI flags, and stable CSV/Markdown contracts;
-- read evolving constraints from workflow files (e.g., `DESIGN_SPEC_LOCKED.md`) instead of baking them into code.
+**Hand off between stages.** Write `DESIGN_LOOP_STATE.json` and stop at these points,
+then continue in a fresh session: after the literature packet (Step 2), at the xTB
+approval checkpoint (Step 7), and between rounds (Step 12). State on disk is the
+memory; conversation history is not. Delegate Steps 1.5-A and 1.5-B to subagents when
+available and take back only the file paths.
 
 ## Constants
 
-- **MAX_ROUNDS = 3**
-- **INITIAL_CANDIDATES = 20-50**
-- **MAX_XTB_PER_ROUND = 10-20**
-- **ZOTERO_SEARCH_QUERIES = 3-5**
-- **ZOTERO_METADATA_LIMIT = 30**
-- **ZOTERO_FULLTEXT_PAPERS = 5-8**
-- **LITERATURE_STREAMS = `Zotero (personal curated) || Active search (latest + authoritative) — both mandatory, run in parallel`**
-- **ACTIVE_SEARCH_TARGETS = `(1) last 1-2 years on the specific scaffold/topic; (2) top-cited reviews or landmark papers; (3) topics not covered in Zotero`**
-- **XTB_LEVEL = `GFN2-xTB` unless the design file says otherwise**
-- **SYNTHESIS_GATE_FOR_PROMOTION = `route_plausible_or_make_on_demand`**
-- **EXPERIMENTAL_FEEDBACK_REQUIRED = false unless previous wet-lab results are provided**
-- **STOP_IF_NO_NEW_FEASIBLE_MOTIF = true**
-- **NMR_PREDICTION = `optional; auto-enabled when experimental NMR data is provided`**
-- **NMR_VALIDATED_SOLVENTS = `CDCl3, DMSO-d6, D2O`**
-- **NMR_1H_TOLERANCE = `±0.20 ppm`**
-- **NMR_13C_TOLERANCE = `±2.0 ppm`**
-- **IMAGE_INPUT = optional** — Claude extracts SMILES from structure images (journal figures, ChemDraw screenshots, hand-drawn sketches)
-- **IMAGE_LOW_CONFIDENCE_REQUIRES_CONFIRMATION = true**
-- **CHEMDRAW_ROLE = optional visualization/input terminal**
-- **ZOTERO_TRACE_REQUIRED = true** — every generated candidate must reference the Zotero paper(s) that motivated it
-- **GEMINI_REVIEW_MODEL = `gemini-2.5-flash`** — default for all `mcp__gemini-review__*` calls
-- **GEMINI_ADVERSARIAL_REVIEW = mandatory** — after Step 3, every round; cannot be skipped
-- **NOVELTY_CHECK = mandatory** — after Step 5, every round; `prior_art_status` must be populated before gallery
-- **CLAIM_AUDIT = mandatory when xTB runs, OR when a design objective is one the loop cannot evidence** (binding affinity, potency, selectivity, catalytic activity, self-assembly, permeability, in vivo outcome) — after Step 9; Gemini scoring in Step 11 must reference the audit
-- **LOOP_CALIBRATION = mandatory once experimental feedback exists** — Step 12 records promoted-vs-worked; Step 13 reports it, unflattering results included
-- **RANKING_DIAGNOSTICS = mandatory** — Step 11, every round: axis-redundancy matrix (or `not_assessed` below 8 candidates), dominated-count, and the property-only practicality ablation; reported even when the result is that practicality changed nothing
-- **AXIS_REDUNDANCY_FLOOR = 8 candidates** — below this, record `not_assessed`; between 8 and 15, label `small_sample` and do not collapse axes on it
-- **AXIS_REDUNDANCY_THRESHOLD = `|Kendall τ-b| ≥ 0.8 = redundant; 0.6-0.8 = coupled`**
+| | |
+|---|---|
+| MAX_ROUNDS | 3 |
+| INITIAL_CANDIDATES | 20–50 |
+| MAX_XTB_PER_ROUND | 10–20 |
+| ZOTERO_SEARCH_QUERIES | 3–5 |
+| ZOTERO_METADATA_LIMIT | 10 per query |
+| ZOTERO_FULLTEXT_PAPERS | 5–8, keyword windows only |
+| XTB_LEVEL | GFN2-xTB unless the spec says otherwise |
+| SYNTHESIS_GATE_FOR_PROMOTION | route plausible or make-on-demand |
+| GEMINI_REVIEW_MODEL | `gemini-2.5-flash` |
+| NMR tolerances | ¹H ±0.20 ppm, ¹³C ±2.0 ppm; CDCl₃, DMSO-d₆, D₂O |
+| AXIS_REDUNDANCY | \|τ-b\| ≥ 0.8 redundant, 0.6–0.8 coupled; `not_assessed` below 8 candidates |
+| STOP_IF_NO_NEW_FEASIBLE_MOTIF | true |
 
----
+Mandatory every round, never skippable: adversarial review (3.5), novelty check
+(5.5), user approval (7), ranking diagnostics (11). The claim audit (9.5) is
+mandatory whenever xTB ran **or** an objective is one this loop cannot evidence.
 
 ## Workflow
 
-### 0.5. Extract structures from images (when provided)
-
-If the user provides structure images (journal figures, ChemDraw screenshots, hand-drawn sketches) instead of or alongside SMILES:
-
-1. Read each image with the `Read` tool.
-2. Extract molecular structures as canonical SMILES; validate each with RDKit.
-3. Write `molecule-design-stage/IMAGE_EXTRACTED_SMILES.csv`.
-4. Low-confidence extractions (`extraction_confidence: low`) require user confirmation before proceeding.
-5. Confirmed structures feed into `seed_scaffolds` in Step 1.
-
-For full extraction procedure, validation rules, and CSV schema, see [references/structure-image-input-protocol.md](references/structure-image-input-protocol.md).
-
-### 1. Lock the design spec
-
-Read the Markdown constraint file and produce `DESIGN_SPEC_LOCKED.md`. Separate:
-
-- `design_mode`: `small_molecule` or `polymer`
-- `hard_constraints`: must not be violated
-- `soft_preferences`: optimize if possible
-- `forbidden_motifs`: reject if present
-- `seed_scaffolds`: preserve or modify per the design goal
-- `allowed_elements`, charge range, size range, solubility and stability limits
-- `synthesis_feasibility_constraints`: route depth, starting materials, forbidden reactions, make/buy preference, route risk tolerance
-- `available_building_blocks`: in-stock, purchasable, and prior-route materials. Capture from the design spec's "Known available starting materials or building blocks" and "Preferred vendors, libraries, or inventory sources" fields. Write these into `DESIGN_LOOP_STATE.json`'s `available_building_blocks[]` so Step 3 can bias generation toward shelf-available materials (Fix C). See [references/design-loop-state-schema.md](references/design-loop-state-schema.md).
-- `experimental_feedback_policy`
-- `pareto_objectives` and confidence/evidence requirements for promotion
-- `xTB_proxy_targets`: what xTB can reasonably test
-- `non_xTB_targets`: properties that must not be inferred from xTB alone
-- `polymer_constraints`: repeat-unit representation, monomer/end-group assumptions, DP or oligomer model, polymerization route, dispersity/tacticity/morphology requirements, material-property targets
-
-If a hard constraint is ambiguous, stop and ask before running xTB. If design mode is ambiguous, ask before candidate generation.
-
-### 1.5. Build the dual literature intelligence base
-
-**Both sub-steps run in parallel. Neither is subordinate to the other.**
-
-- **1.5-A Zotero extraction** → writes `ZOTERO_KNOWLEDGE_PACKET.md` and `ZOTERO_SEED_SMILES.csv`
-  See full protocol: [references/zotero-extraction-protocol.md](references/zotero-extraction-protocol.md)
-
-- **1.5-B Active search** → writes `ACTIVE_SEARCH_PACKET.md`
-  See full protocol: [references/active-search-protocol.md](references/active-search-protocol.md)
-
-### 2. Build the unified literature packet
-
-Merge `ZOTERO_KNOWLEDGE_PACKET.md` and `ACTIVE_SEARCH_PACKET.md` into `LIT_PACKET.md`.
-
-- Merge entries that appear in both streams; record both sources.
-- Flag contradictions explicitly — do not silently pick one over the other.
-
-`LIT_PACKET.md` must contain: unified scaffold table, SAR rules table, synthesis knowledge, failed motifs, field consensus, and open design questions (to drive bounded-exploratory candidates in Step 3).
-
-### 3. Generate SMILES candidates
-
-Generate 20-50 candidates in `ROUND_N_CANDIDATES.csv`. Every candidate must trace to at least one source in `LIT_PACKET.md`. Bounded-exploratory candidates (`zotero_grounding: none`) capped at 10%.
-
-**Mandatory cross-round exclusion (Fix A).** Before generating, read `DESIGN_LOOP_STATE.json` if it exists. Every `killed_motifs[]` entry is a hard exclusion constraint: no candidate may match a killed `smarts` or `murcko_scaffold`. A killed motif may be re-proposed **only** with an explicit, documented rescue hypothesis recorded in that candidate's `rationale` (e.g., the prior failure was a route problem now solved, not a structural dead end). See [references/design-loop-state-schema.md](references/design-loop-state-schema.md).
-
-**Availability bias (Fix C).** When `DESIGN_LOOP_STATE.json`'s `available_building_blocks[]` is non-empty, devote a portion of the round to candidates built from those in-stock/purchasable materials, tagged via the `building_block_source` column. A lightweight vendor-availability lookup (mirroring the novelty-check structure) may populate `building_block_source`, but this is not a new mandatory gate.
-
-For full column schema, bucket rules (including the shelf-biased building-block bucket), and polymer-specific fields, see [references/candidate_schema.md](references/candidate_schema.md).
-
-### 3.5. Gemini adversarial chemistry review
-
-**Mandatory.** Runs immediately after Step 3, before RDKit filtering. Pass raw `ROUND_N_CANDIDATES.csv` + `DESIGN_SPEC_LOCKED.md` directly — no summaries.
-
-Outputs `ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md` and adds `gemini_adversarial_flag` (`pass`/`warn`/`revise`) to the candidates CSV.
-
-For full Gemini prompt, output format, and flag update rules, see [references/adversarial-review-protocol.md](references/adversarial-review-protocol.md).
-
-### 4. Run deterministic filtering
-
-Use the bundled helper:
-
-```bash
-python3 "$CODEX_HOME/skills/molecule-design-loop/scripts/rdkit_filter_candidates.py" \
-  molecule-design-stage/ROUND_N_CANDIDATES.csv \
-  molecule-design-stage/ROUND_N_FILTERED.csv
-```
-
-Pass constraints from `DESIGN_SPEC_LOCKED.md` as arguments: `--allowed-elements`, `--min-mw`, `--max-mw`, `--max-rotatable`, `--forbidden-smarts`.
-
-**`--forbidden-smarts` must be the union of two sources (Fix A):** the design spec's `forbidden_motifs` AND every `killed_motifs[].smarts` from `DESIGN_LOOP_STATE.json`. This makes historical structural failures filter out automatically — the flag already accepts a list, so no script change is needed:
-
-```bash
-# --forbidden-smarts list = spec forbidden_motifs ∪ DESIGN_LOOP_STATE.json killed_motifs[].smarts
-python3 ".../rdkit_filter_candidates.py" ... \
-  --forbidden-smarts "<spec_motif_1>" "<spec_motif_2>" "<killed_motif_smarts_1>" "<killed_motif_smarts_2>"
-```
-
-For medchem triage, also pass: `--min-qed`, `--max-logp`, `--max-tpsa`, `--max-hba`, `--max-hbd`, `--min-fsp3`, `--max-sa-score`, `--max-medchem-alerts`, `--reject-pains`, `--reject-brenk`, `--reject-scaffold-duplicates`.
-
-Write `ROUND_N_FILTERED.csv`. Keep rejected candidates with a rejection reason.
-
-### 5. Run synthesis-feasibility gate
-
-Write `ROUND_N_SYNTHESIS_FEASIBILITY.csv`. Assess commercial availability, retrosynthetic route, protecting-group burden, purification risk, and known failure modes from the literature packet.
-
-The gate must also emit a directly sortable `synthesis_cost` (`low`/`medium`/`high`/`very_high`) and `time_to_first_sample` (`same_day`/`days`/`weeks`/`months`) estimate per candidate, so Step 11's Pareto ranking can treat synthesis economics as a first-class axis (Fix B), not a footnote.
-
-**Feasible is not practical.** A route that merely exists is not a route worth running, so the gate must also emit `overall_yield_estimate` (`high`/`medium`/`low`/`unknown`) and `hazard_toxicity_flag` (`none`/`standard_care`/`high_hazard`/`unknown`). Where route evidence supports more than one route, record the trade-off in `route_alternatives` rather than collapsing the choice into a single cost number — a 3-step high-hazard route and a 6-step benign one are different offers, and the chemist picks between them.
-
-Use `unknown` rather than a fabricated value. Without a retrosynthesis/CASP engine and a price/toxicity database these axes are heuristic estimates, not an optimality-guaranteed route Pareto front; label them as estimates.
-
-For full column schema, the make/buy preference ordering, and promotion rules, see [references/synthesis-gate-schema.md](references/synthesis-gate-schema.md).
-
-### 5.5. Novelty check
-
-**Mandatory.** Runs after Step 5, before the HTML gallery. Check every promoted candidate against prior art using `mcp__gemini-research__prior_art_search`.
-
-Outputs `ROUND_N_NOVELTY_CHECK.md`. Adds `prior_art_status` and `source_doi` columns to `ROUND_N_SYNTHESIS_FEASIBILITY.csv`.
-
-For full protocol and `prior_art_status` values, see [references/novelty-check-protocol.md](references/novelty-check-protocol.md).
-
-### 6. Render an HTML candidate gallery
-
-Use the bundled helper:
-
-```bash
-python3 "$CODEX_HOME/skills/molecule-design-loop/scripts/render_candidate_gallery.py" \
-  molecule-design-stage/ROUND_N_FILTERED.csv \
-  molecule-design-stage/ROUND_N_CANDIDATE_GALLERY.html \
-  --title "Round N Candidate Gallery"
-```
-
-The gallery must use RDKit depictions (not text-only tables), show filter decisions and rationale, and preserve rejected candidates. Must be produced before any xTB run starts.
-
-For polymer runs, also render `ROUND_N_POLYMER_DESIGN.html` (or embed it at the top of the gallery) with: SRU bracket schematic, repeat-unit handles, backbone direction strip (`START -> ... -> END`), and three-view depiction packet. See [references/polymer-design-mode.md](references/polymer-design-mode.md) for full display rules.
-
-### 7. Get explicit user structural approval before xTB
-
-After generating the gallery, stop and ask the user to confirm no obvious structural problems exist. Write `ROUND_N_XTB_APPROVAL.md` using `templates/xtb_approval_template.md`.
-
-- Do not start xTB until the user explicitly approves.
-- If structural issues are flagged, revise the candidate list first.
-- Update `DESIGN_LOOP_STATE.json` with approval status and approved candidate IDs.
-
-### 8. Select xTB jobs
-
-Select at most `MAX_XTB_PER_ROUND` candidates. Prefer: user-approved candidates, hard-constraint passers, synthesis-gate passers, chemically diverse Murcko scaffolds, one or two conservative controls.
-
-Before running: check `which xtb`; search project scripts for existing runners; report the blocker if xTB is not on PATH.
-
-For polymer rows, perform a polymer-map preflight (verify `backbone_start_atom`, `backbone_end_atom`, `backbone_path_atoms`, `oligomer_model_smiles`) and record `polymer_xtb_preflight_status`; block xTB if the map is missing or inconsistent.
-
-### 9. Run xTB screening
-
-Run the smallest useful calculation first (GFN2-xTB by default). Collect: optimization status, final energy, HOMO/LUMO/gap, dipole moment, geometry sanity, convergence failure reason.
-
-Write `ROUND_N_XTB_RESULTS.csv`. Keep raw files under `xtb_jobs/round_N/`.
-
-For polymers, report properties of the stated capped oligomer surrogate only. Do not extrapolate to Mn, dispersity, Tg, modulus, morphology, or conductivity.
-
-See xTB integrity rules: [references/xtb-integrity-rules.md](references/xtb-integrity-rules.md).
-
-### 9.5. Result-to-claim audit
-
-**Mandatory in either of two cases**, before Gemini scoring:
-
-1. **xTB ran** — audit what those numbers do and do not prove.
-2. **A design objective is one this loop cannot evidence at all** — binding affinity, potency, selectivity, catalytic activity, self-assembly, permeability, in vivo outcome. Mandatory **even when xTB did not run**: the audit's output is then the explicit declaration that no direct evidence exists.
-
-Case 2 closes a silent hole. A candidate can pass hard constraints, clear the synthesis gate, look clean on descriptors, and score 5 on literature analogy alone — while the loop has produced **zero evidence about the property the chemist actually cares about**, and nothing says so out loud.
-
-Outputs `ROUND_N_CLAIM_AUDIT.md` with an evidence-to-claim matrix, an `Un-Evidenced Design Objectives` section, and `auditor_flag` per candidate. Step 11 must read this file; Gemini may not assign a score ≥ 4 to any candidate with `auditor_flag: overclaim` unless corrected, and any candidate flagged `no_direct_evidence` must carry `evidence_level: literature_only` or `hypothesis_only`.
-
-For full Gemini prompt and output format, see [references/claim-audit-protocol.md](references/claim-audit-protocol.md).
-
-### 9.7. NMR prediction and verification (optional)
-
-**When to run:** when the design spec sets `nmr_prediction: yes`, when the user provides experimental NMR data, or for candidates approaching synthesis recommendation (Gemini score ≥ 4 or Pareto top-3).
-
-Claude predicts 1H and 13C NMR chemical shifts, multiplicities, and coupling constants for selected candidates. No external tool required — this uses Claude's internal chemistry knowledge (validated at ±0.079 ppm for 1H, ±1.37 ppm for 13C per Anthropic benchmarks).
-
-Outputs `ROUND_N_NMR_PREDICTIONS.csv`. When experimental NMR data is available, also outputs `ROUND_N_NMR_VERIFICATION.md` with a peak-by-peak predicted-vs-experimental comparison and a `verification_status` per candidate (`confirmed` / `consistent` / `inconclusive` / `mismatch`).
-
-A `mismatch` status triggers mandatory structural review — the synthesized compound may be a regioisomer, tautomer, or side product.
-
-NMR predictions are a plausibility check, not a replacement for experimental characterization. Always label as "Claude-predicted" and state the expected error range. The claim audit (Step 9.5) scope extends to NMR predictions.
-
-For full protocol, output schemas, matching thresholds, and scope limitations, see [references/nmr-prediction-protocol.md](references/nmr-prediction-protocol.md).
-
-### 10. Ingest experimental feedback when available
-
-Normalize user-provided results into `ROUND_N_EXPERIMENT_RESULTS.csv` before scoring.
-
-Columns: `candidate_id`, `experiment_type`, `condition_summary`, `measured_endpoint`, `measured_value`, `unit`, `success_status` (pass/warn/fail/inconclusive), `failure_mode`, `data_quality`, `notes`.
-
-Keep exact condition summaries; preserve failure rows as useful negative evidence. If no feedback is available, mark `not_provided`.
-
-### 11. Score candidates with Gemini and Pareto ranking
-
-Create `ROUND_N_DECISION.md`. Start a **fresh Gemini thread** (separate from Steps 3.5 and 9.5). Gemini scores against `DESIGN_SPEC_LOCKED.md`, not raw xTB numbers.
-
-**Synthesis practicality is a dominance criterion, not a tiebreaker.** Compute dominance over {property fit, `synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, `hazard_toxicity_flag`}: a candidate that is no better on every one of those axes than some other candidate is dominated, is recorded as `dominated_by:<candidate_id>` in `practicality_dominance`, and must not enter the top 3 of `pareto_rank` whatever its score. Rank within the non-dominated front by design-spec priority, then apply the make/buy tiebreak (`buy` < `make_on_demand` < `custom_synthesis`). Treat `unknown` as non-comparable on that axis and lower `confidence`.
-
-A high-performing but 8-step custom synthesis should not outrank a comparable 2-step shelf-available candidate — and a cheap fast candidate that is clearly worse on the design objective does not win by being cheap. When several candidates are non-dominated, present the trade-off instead of forcing a single winner.
-
-**Two mandatory ranking diagnostics (Fix E).** The ranking cannot audit itself; these two checks do, and both are reported whether or not they flatter the loop:
-
-- **Axis redundancy.** The five ranking axes are asserted to be independent considerations — that has never been checked. Compute Kendall's τ-b over the hard-constraint passers for all axis pairs (ordinal data with heavy ties; Pearson's r is not appropriate). Pairs at |τ-b| ≥ 0.8 carry one piece of information, not two, and the trade-off narrative must stop describing them as separate. Below 8 candidates, record `not_assessed` rather than computing noise. Separately, report `candidates_dominated / candidates_assessed`: with five coarse ordinal axes it is entirely possible that **nothing** is dominated, meaning the practicality gate did not bind at all this round. Say so when it happens.
-- **Practicality ablation.** Also rank the same candidates on property fit alone (`shadow_rank_property_only`), ignoring every practicality axis and the make/buy tiebreak. Report both top-3 sets side by side, and for each candidate the practicality constraint pushed out, name the concrete value that did it. If the two rankings agree, state that practicality did not change the recommendation this round — an identical result is informative, not a failure to hide.
-
-The dominance computation, both ranks, the exclusion reasons, and the τ-b matrix are mechanical — compute them with `scripts/ranking_diagnostics.py` (input: a decision CSV with `candidate_id`, `gemini_constraint_score`, and the four practicality-axis columns) rather than by hand, so the numbers are reproducible and the integrity rules (unknown is non-comparable, never a sentinel) are enforced in code. Gemini still assigns `gemini_constraint_score`; the script only ranks on it. Pass `--benchmark-ids` to score known reference compounds through the same pass.
-
-For the diagnostics' method, thresholds, sample-size floors, and the limits of what each one proves, see [references/ranking-diagnostics-protocol.md](references/ranking-diagnostics-protocol.md).
-
-For full Gemini prompt, scoring rubric (1-5), all required output fields, and Pareto ranking rules, see [references/gemini-scoring-protocol.md](references/gemini-scoring-protocol.md).
-
-### 12. Iterate
-
-For the next round, generate candidates by modifying observed failure modes:
-
-- Too flexible → add rigidity or shorten linker
-- Too planar → add steric twist or interrupt conjugation
-- Too polar/nonpolar → adjust substituents or ionizable groups
-- Poor gap proxy → tune donor/acceptor strength
-- Geometry collapse → reduce steric clash or change connection point
-- Synthesis gate fails → simplify route, use available building blocks, reduce protecting-group burden
-- Experiment fails → identify whether it was synthesis, purification, stability, assay, or measurement failure; design next round around that failure mode
-- Polymer surrogate too bulky/flexible → adjust side chains, spacer length, comonomer, end groups, or oligomer model
-
-Carry forward: kept candidates, killed motifs and reasons, literature warnings, xTB failure modes, synthesis gate outcomes, experimental successes and failures.
-
-Update `DESIGN_LOOP_STATE.json` per the contract in [references/design-loop-state-schema.md](references/design-loop-state-schema.md): `successful_moves`, `killed_motifs`, `failed_reactions`, `scaffold_families_explored`, `evidence_gaps`, `available_building_blocks`, `experimental_endpoints`, and `hypotheses_to_revisit`. Update in place — do not overwrite earlier rounds.
-
-**Close the failure-feedback loop (Fix D).** The two highest-value negative signals must be written back as structured state, not left as prose:
-
-- Experimental `failure_mode` rows from `ROUND_N_EXPERIMENT_RESULTS.csv` → new `killed_motifs[]` and/or `failed_reactions[]` entries (with `failure_source: experiment`).
-- The `likely_lab_failure_mode` column from `ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md` → new `killed_motifs[]`/`failed_reactions[]` entries (with `failure_source: adversarial_review`).
-
-Whenever a structural pattern is implicated, record a SMARTS in the `killed_motifs[].smarts` field so the next round's Step 3 exclusion and Step 4 `--forbidden-smarts` union remove it automatically.
-
-**Record the loop's own track record.** Once any experimental feedback exists, update `loop_calibration` in `DESIGN_LOOP_STATE.json`: compare what the previous round promoted (`ROUND_N_DECISION.md`) against what the experiments returned (`ROUND_N_EXPERIMENT_RESULTS.csv`). Fill `rounds[]` (promoted / attempted / made / met-endpoint / hit rate) and `prediction_vs_outcome[]` (predicted score and priority vs. observed status, tagged `confirmed` / `optimistic` / `pessimistic`).
-
-This is pure aggregation of data already collected, and it answers the one question the loop otherwise cannot: **of the structures this loop told the chemist to make, what fraction were worth making?** A repeated `optimistic` pattern goes into `known_bias` and lowers `confidence` in the next round's scoring. Use `not_computable`/`null` when feedback is absent — never estimate a hit rate from predictions alone.
-
-### 13. Stop and report
-
-Stop when one of these happens:
-- At least 3-5 candidates satisfy hard constraints, pass or warn-only synthesis feasibility, receive strong Gemini/Pareto scores, and have supporting xTB or experimental evidence;
-- No new feasible motif appears for one full round;
-- xTB is unavailable and the user needs to configure the compute backend;
-- `MAX_ROUNDS` is reached.
-
-Write `DESIGN_REPORT.md` with: top candidates and SMILES, why they satisfy the design file, synthesis-feasibility summary, experimental feedback summary, xTB proxy summary, NMR prediction/verification summary (if run), Gemini constraint scoring and Pareto rank, risks and what not to claim, recommended next experiment or higher-level calculation, and for polymers: oligomer-length sensitivity, conformer sampling, MD/CG simulation, polymerization feasibility check, or experimental characterization plan.
-
-**Two sections are mandatory and must not be softened:**
-
-- **Un-evidenced objectives** — every design objective the loop produced no direct evidence for, taken from the claim audit's `Un-Evidenced Design Objectives` section. Name the substitute that was used instead (literature analogy, descriptor proxy, scaffold precedent) and the measurement that would settle it.
-- **Ranking diagnostics** — the final round's axis-redundancy verdict (which ranking axes turned out to carry the same information, or `not_assessed` below the sample floor), how many candidates the practicality criterion actually dominated, and the practicality-ablation result: which high-scoring candidates the constraint kept off the bench and why, or an explicit statement that it changed nothing. See [references/ranking-diagnostics-protocol.md](references/ranking-diagnostics-protocol.md).
-- **Loop calibration** — the `loop_calibration` track record from `DESIGN_LOOP_STATE.json`: promoted vs. attempted vs. worked, the hit rate, and any `known_bias`. **Report it honestly, including when it is unflattering.** A loop that hides its own miss rate is worse than no loop, because it spends bench time on false confidence. Label small samples (fewer than 5 attempted) as such and do not present them as a performance figure. When no experimental feedback exists yet, say so plainly rather than omitting the section.
-
----
-
-## xTB Integrity Rules and Chemistry Design Rules
-
-See [references/xtb-integrity-rules.md](references/xtb-integrity-rules.md).
-
----
-
-## Small-Molecule Design Mode
-
-Use this mode for a discrete molecule or a small-molecule scaffold series. Do not run it as a polymer/repeat-unit workflow.
-
-`target/use case -> literature/mechanism packet -> seed or scaffold policy -> interpretable analog candidates -> RDKit/medchem filtering -> synthesis-feasibility gate -> optional xTB evidence -> experimental priority list`
-
-Core rules:
-- Start from the target use case and hard constraints, not arbitrary SMILES enumeration.
-- Identify the likely mechanism or property driver: binding, recognition, electronics, solubility, redox, photophysics, conformation, steric shielding, permeability, stability, or aggregation.
-- Preserve the scaffold only when the design spec says to; otherwise allow controlled scaffold hops with clear rationale.
-- Keep one design move per candidate so the next round can learn from success/failure.
-- Require a make/buy or retrosynthesis plausibility note before final promotion.
-
-Small-molecule outputs must include: `small_molecule_design_mode` (`scaffold_optimization` / `de_novo_bounded` / `library_triage` / `closed_loop_experiment`), `mechanism_or_property_hypothesis`, `scaffold_policy`, `synthesis_feasibility_notes`, `experimental_readout`, `experimental_priority`, `computational_evidence_role`.
-
----
-
-## Polymer Design Mode
-
-See [references/polymer-design-mode.md](references/polymer-design-mode.md).
-
----
-
-## ChemDraw Integration
-
-Use ChemDraw as an optional structure input/output layer:
-- Read selected structure SMILES through `chemdraw-mcp` when useful.
-- Use ChemDraw to inspect final structures manually.
-- Do not depend on ChemDraw GUI automation for the core loop.
-
-## Invocation Examples
+Read the reference when you reach the step. Run the script rather than writing its
+output by hand. `--help` on any script lists its flags.
+
+| Step | Do | Read | Run |
+|---|---|---|---|
+| 0.5 | SMILES from structure images, if any | [structure-image-input-protocol.md](references/structure-image-input-protocol.md) | — |
+| 1 | Lock the spec → `DESIGN_SPEC_LOCKED.md` | [templates/design_spec_template.md](templates/design_spec_template.md) | — |
+| 1.5-A | Mine Zotero → knowledge packet, seed SMILES | [zotero-extraction-protocol.md](references/zotero-extraction-protocol.md) | — |
+| 1.5-B | Search current + landmark work (parallel) | [active-search-protocol.md](references/active-search-protocol.md) | — |
+| 2 | Merge both → `LIT_PACKET.md`, flag conflicts | — | — |
+| 3 | Generate 20–50 candidates | [candidate_schema.md](references/candidate_schema.md) | `build_candidates.py` |
+| 3.5 | Gemini adversarial review | [adversarial-review-protocol.md](references/adversarial-review-protocol.md) | `build_gemini_inputs.py --steps 3.5` |
+| 4 | Deterministic filtering | — | `rdkit_filter_candidates.py` |
+| 5 | Synthesis-feasibility gate | [synthesis-gate-schema.md](references/synthesis-gate-schema.md) | — |
+| 5.5 | Prior-art / novelty check | [novelty-check-protocol.md](references/novelty-check-protocol.md) | `build_gemini_inputs.py --steps 5.5` |
+| 6 | Render the HTML gallery | [polymer-design-mode.md](references/polymer-design-mode.md) for polymers | `render_candidate_gallery.py` |
+| 7 | **Stop. Get structural approval.** | [templates/xtb_approval_template.md](templates/xtb_approval_template.md) | — |
+| 8–9 | Select and run xTB jobs | [xtb-integrity-rules.md](references/xtb-integrity-rules.md) | — |
+| 9.5 | Result-to-claim audit | [claim-audit-protocol.md](references/claim-audit-protocol.md) | `build_gemini_inputs.py --steps 9.5` |
+| 9.7 | NMR prediction / verification (optional) | [nmr-prediction-protocol.md](references/nmr-prediction-protocol.md) | — |
+| 10 | Ingest experimental feedback | [candidate_schema.md](references/candidate_schema.md) | — |
+| 11 | Score, rank, run both diagnostics | [gemini-scoring-protocol.md](references/gemini-scoring-protocol.md), [ranking-diagnostics-protocol.md](references/ranking-diagnostics-protocol.md) | `ranking_diagnostics.py` |
+| 12 | Write failures back to state; iterate | [design-loop-state-schema.md](references/design-loop-state-schema.md) | — |
+| 13 | Stop and report | — | — |
+
+### Step notes
+
+**1 — Lock the spec.** Separate hard constraints, soft preferences, forbidden motifs,
+seed scaffolds, element/charge/size limits, synthesis constraints, available building
+blocks, Pareto objectives, what xTB may test, and what it may not. Ambiguous hard
+constraint → ask before anything expensive.
+
+**3 — Generate.** Every candidate traces to a source in `LIT_PACKET.md`;
+unsourced exploratory candidates cap at 10%. Before generating, read
+`DESIGN_LOOP_STATE.json`: every `killed_motifs[]` entry is a hard exclusion, and a
+killed motif returns only with a written rescue hypothesis in its `rationale`. When
+`available_building_blocks[]` is non-empty, spend part of the round on candidates
+built from them. One candidate should test one interpretable design move.
+
+**4 — Filter.** Pass `--forbidden-smarts` as the union of the spec's
+`forbidden_motifs` and every `killed_motifs[].smarts`, so past structural failures
+drop out automatically. Keep rejected rows with their reason. Medchem triage flags
+(`--min-qed`, `--max-sa-score`, `--reject-pains`, …) are listed by `--help`.
+
+**5 — Gate.** Emit sortable `synthesis_cost`, `time_to_first_sample`,
+`overall_yield_estimate` and `hazard_toxicity_flag`, plus `route_alternatives` when
+evidence supports more than one route. A route that merely exists is not a route
+worth running: a 3-step high-hazard route and a 6-step benign one are different
+offers, and the chemist picks. Use `unknown`, never a made-up number — without a
+retrosynthesis engine and a price/toxicity database these are estimates, so label
+them as estimates.
+
+**6–7 — Gallery and approval.** The gallery uses RDKit depictions, shows filter
+decisions, and keeps rejected candidates. It must exist before any xTB run. Then
+stop and ask. Do not start xTB until the user approves; record the approved ids in
+`DESIGN_LOOP_STATE.json`.
+
+**9 — xTB.** Smallest useful calculation first. Record optimisation status, energy,
+HOMO/LUMO/gap, dipole, geometry sanity, and any convergence failure. For polymers,
+report the capped oligomer surrogate only — never extrapolate to Mn, dispersity,
+Tg, modulus or morphology.
+
+**11 — Score and rank.** Fresh Gemini thread, separate from Steps 3.5 and 9.5.
+Synthesis practicality is a **dominance** criterion, not a tiebreaker: a candidate no
+better on any of {property fit, cost, time, yield, hazard} than another is dominated,
+is recorded as `dominated_by:<id>`, and stays out of the top 3 whatever it scored.
+A high-performing 8-step custom synthesis should not outrank a comparable 2-step
+shelf-available candidate — and a cheap candidate that is clearly worse on the
+objective does not win by being cheap. When several are non-dominated, present the
+trade-off instead of forcing a winner. `unknown` is non-comparable and lowers
+confidence. The dominance maths, both ranks and the τ-b matrix are mechanical: run
+`ranking_diagnostics.py` rather than computing them by hand.
+
+**12 — Iterate.** Design the next round around the observed failure mode: too
+flexible → rigidify; too planar → add twist; gate failed → simplify the route;
+experiment failed → identify whether it was synthesis, purification, stability,
+assay or measurement. Write both negative signals back as structured state:
+experimental `failure_mode` rows and the adversarial review's
+`likely_lab_failure_mode` become `killed_motifs[]` / `failed_reactions[]` entries
+with a SMARTS whenever a structural pattern is implicated. Update
+`loop_calibration` once any experimental feedback exists.
+
+**13 — Report.** Stop when 3–5 candidates clear the constraints with evidence, or no
+new feasible motif appears for a full round, or xTB is unavailable, or `MAX_ROUNDS`
+is reached. `DESIGN_REPORT.md` must contain three sections that are never softened:
+*un-evidenced objectives* (with the substitute used and the measurement that would
+settle it), *ranking diagnostics* (redundancy verdict, how many candidates the
+practicality criterion actually dominated, and the ablation result), and *loop
+calibration* (promoted vs. attempted vs. worked, including when it is unflattering).
+
+## Integrity rules
+
+These exist because each one has produced a wrong conclusion before.
+
+1. **xTB is a proxy.** It is not proof of binding, assembly, reactivity, selectivity
+   or mechanism. A heuristic accessibility score is not proof a molecule can be made.
+2. **State what has no evidence.** A candidate can pass every constraint, look clean
+   on descriptors and score well on literature analogy while the loop has produced
+   zero evidence on the property the chemist cares about. Say so out loud, in the
+   audit and in the report.
+3. **No sentinels.** A failed or missing computation is `fail` / `not_run` /
+   `unknown`, never `0` or `-999`. Sentinels sort to the extremes, so a crashed job
+   becomes a top-ranked candidate.
+4. **Fixed scoring anchors.** Never normalise a descriptor against this round's
+   min/max. Anchor to the spec, a physical bound, or a named reference compound, or
+   the score means nothing across rounds — and this loop has cross-round memory.
+5. **Report diagnostics either way.** A redundancy check that found nothing and a
+   dominance gate that dominated nothing are both results. Say when the gate did not
+   bind. Correlated axes do not "double-penalise" under dominance; a duplicate axis
+   creates no new way to be worse.
+6. **Keep the rejects.** Rejected candidates stay in the file with their reason;
+   they are how the next round learns.
+7. **Label predictions.** NMR predictions are Claude-native plausibility checks, not
+   a validated method. Always mark them "Claude-predicted" with the error range. A
+   `mismatch` triggers structural review — regioisomer, tautomer or side product.
+8. **Low-confidence image extractions need confirmation** before anything downstream.
+
+## Outputs
+
+Everything lands in `molecule-design-stage/`:
+
+`DESIGN_SPEC_LOCKED.md` · `ZOTERO_KNOWLEDGE_PACKET.md` · `ZOTERO_SEED_SMILES.csv` ·
+`ACTIVE_SEARCH_PACKET.md` · `LIT_PACKET.md` · `IMAGE_EXTRACTED_SMILES.csv` ·
+`ROUND_N_CANDIDATES.csv` · `ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md` ·
+`ROUND_N_FILTERED.csv` · `ROUND_N_SYNTHESIS_FEASIBILITY.csv` ·
+`ROUND_N_NOVELTY_CHECK.md` · `ROUND_N_CANDIDATE_GALLERY.html` ·
+`ROUND_N_POLYMER_DESIGN.html` · `ROUND_N_XTB_APPROVAL.md` · `ROUND_N_XTB_RESULTS.csv` ·
+`ROUND_N_CLAIM_AUDIT.md` · `ROUND_N_NMR_PREDICTIONS.csv` · `ROUND_N_NMR_VERIFICATION.md` ·
+`ROUND_N_EXPERIMENT_RESULTS.csv` · `ROUND_N_DECISION.md` · `DESIGN_LOOP_STATE.json` ·
+`DESIGN_REPORT.md` · `xtb_jobs/`
+
+`DESIGN_LOOP_STATE.json` is the cross-round memory and the handoff file. Update it in
+place; never overwrite earlier rounds.
+
+## Scripts
+
+| Script | Purpose |
+|---|---|
+| `build_candidates.py` | config → `ROUND_N_CANDIDATES.csv`, deriving every mechanical column and validating each structure |
+| `rdkit_filter_candidates.py` | descriptors, medchem triage, forbidden-SMARTS filtering |
+| `render_candidate_gallery.py` | filtered CSV → standalone RDKit HTML gallery |
+| `build_gemini_inputs.py` | round files → Steps 3.5 / 5.5 / 9.5 review packets |
+| `ranking_diagnostics.py` | dominance, Pareto and shadow ranks, τ-b matrix (stdlib only) |
+| `inspect_round.py` | bounded views of any round file (stdlib only) |
+
+When a new helper is needed: one entrypoint, reusable parts, per-run config. Never
+hard-code a round number, molecule, path or threshold; read evolving constraints from
+`DESIGN_SPEC_LOCKED.md` instead of baking them into code.
+
+## Writing a candidate config
+
+`build_candidates.py --print-columns` separates what you write from what it derives.
+Write only the judgement columns; the four SMILES copies, atom indices, repeat-unit
+drawings, formula and mass are computed. Structures are assembled from named
+`fragments` onto a `scaffolds` template (discrete molecules) or a `chains` template
+(polymers), and every one is checked before it is written: it parses, stays within
+`allowed_elements`, is neutral, matches the motif counts its pieces declare, and
+carries the stereochemistry the template requires. A failure stops the run — a
+config that builds the wrong molecule should fail loudly, not reach xTB.
+
+## ChemDraw
+
+Optional input/output only: read selected SMILES through `chemdraw-mcp`, inspect
+final structures by hand. The core loop must not depend on GUI automation.
+
+## Invocation
 
 ```text
 /molecule-design-loop "/path/to/design_spec.md"
 /molecule-design-loop "design_spec.md -- rounds: 2 -- max-xtb: 8"
-/molecule-design-loop "design a DTE-naphthyl linker series from design_spec.md"
 ```
 
-## Success Condition
-
-The skill is successful when it produces:
-- valid candidate SMILES with a transparent reason for every design move;
-- deterministic filter results;
-- synthesis-feasibility status before final promotion;
-- an RDKit-rendered HTML gallery before xTB selection;
-- an explicit user approval checkpoint before any xTB run starts;
-- xTB results or a clear xTB availability blocker;
-- optional experimental-feedback intake when results are available;
-- a Gemini/Pareto/confidence-scored iteration decision that narrows the design space rather than restarting randomly.
+If no spec exists, run Zotero extraction first to find the theme, pre-populate
+`templates/design_spec_template.md`, and confirm with the user before anything
+expensive.

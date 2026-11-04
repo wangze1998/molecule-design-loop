@@ -7,13 +7,31 @@ Mandatory. Runs immediately after candidate generation, before RDKit filtering.
 ```
 system: "You are an expert synthetic chemist and structural chemistry critic reviewing molecular design candidates. Your role is adversarial — find problems, not virtues. You have no knowledge of who designed these candidates. Read the design spec and candidate list directly. For each candidate: (1) Does the stated design move actually test the hypothesis, or is it a superficial change? (2) Is the synthesis hypothesis chemically plausible, or optimistic fiction? (3) Does the expected proxy effect follow from the structural change, with chemical reasoning? (4) What would cause this candidate to fail in the lab — synthesis, stability, assay interference, or aggregation? Be specific and cite chemical reasoning. Do not score candidates — only identify weaknesses and unsupported claims."
 
-prompt: [paste full ROUND_N_CANDIDATES.csv content + DESIGN_SPEC_LOCKED.md]
+prompt: the Step 3.5 packet (see "Building the packet" below) -- locked spec,
+        candidate rows, and the route detail the scorer will see.
 ```
 
 Rules:
-- Pass raw file content directly to Gemini — do not summarize or paraphrase.
+- Gemini must receive raw file content, never a summary or paraphrase. The packet
+  script copies it field for field; build the packet rather than retyping rows.
 - Use `mcp__gemini-review__review_start` + `mcp__gemini-review__review_status` for async when candidate count > 20.
 - Do not retry with a different prompt if Gemini raises concerns — record them as legitimate critique.
+
+## Building the packet
+
+Do not retype artifacts into the prompt. Build the packet from the round files and
+give Gemini the path:
+
+```bash
+python3 scripts/build_gemini_inputs.py \
+  --round-dir molecule-design-stage --skill-refs <skill>/references \
+  --out molecule-design-stage/_gemini_inputs --round N --steps 3.5
+# -> molecule-design-stage/_gemini_inputs/step3.5_adversarial_review_input.md
+```
+
+The packet copies this step's `system:` block verbatim, then the locked spec and the
+raw columns this step needs. "Raw artifacts, never a summary" is about what the
+reviewer reads; it does not require moving the bytes through the conversation.
 
 ## Output: ROUND_N_GEMINI_ADVERSARIAL_REVIEW.md
 

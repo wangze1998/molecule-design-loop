@@ -13,13 +13,18 @@ Use `mcp__zotero-mcp__zotero_search_items` with `qmode: "everything"` for:
 - the application area (e.g., "drug delivery", "OPV", "antibacterial", "membrane");
 - the key reaction type or polymerization route if relevant.
 
-Run **3-5 distinct keyword searches**. De-duplicate results by item key.
+Run **3-5 distinct keyword searches** with `limit: 10`. De-duplicate by item key.
+
+A larger limit returns a page of metadata per query and buys little: the ranking
+already puts the relevant items first, and the packet below is what the design
+actually reads.
 
 If Zotero is unavailable (tool call fails), skip this sub-step silently, log `zotero_status: unavailable` in `DESIGN_LOOP_STATE.json`, and rely on the active search stream (1.5-B) alone.
 
 ## A.2 Retrieve metadata
 
-Call `mcp__zotero-mcp__zotero_item_metadata` for each matched paper (up to `ZOTERO_METADATA_LIMIT = 30`).
+Call `mcp__zotero-mcp__zotero_item_metadata` for each matched paper (up to
+`ZOTERO_METADATA_LIMIT = 10` per query).
 
 Extract from metadata: `title`, `authors`, `year`, `journal`, `DOI`, and abstract scan for scaffold names, SMILES/InChI strings, property values, synthesis reactions, known failures.
 
@@ -27,7 +32,13 @@ Score each paper for **structural richness**: papers mentioning specific molecul
 
 ## A.3 Read full text of the most structurally rich papers
 
-Call `mcp__zotero-mcp__zotero_item_fulltext` for the top **5-8 papers** by structural richness score.
+Call `mcp__zotero-mcp__zotero_item_fulltext` for the top **5-8 papers** by
+structural richness score.
+
+Read these by keyword window, not end to end. Search the returned text for the
+terms below and keep the surrounding lines; a full paper is tens of thousands of
+tokens and the extraction needs a few hundred of them. If a tool returns the whole
+text, extract into the packet immediately and do not carry it forward.
 
 Extract:
 

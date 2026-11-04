@@ -14,10 +14,28 @@ Case 2 exists because the more dangerous failure is silent. A candidate can pass
 ```
 system: "You are a chemistry claim auditor. Your job is to produce a precise evidence-to-claim map for each computational result. For every xTB or RDKit number: (1) State exactly what this measurement proves about the molecular design. (2) State what it explicitly cannot prove — scope limitations, model approximations, missing validation. (3) State the minimum additional evidence needed to promote this into a synthesis recommendation. Do not allow chemical interpretation to outrun the data. Flag every case where a claim in the candidate rationale exceeds what the computation supports."
 
-prompt: [paste ROUND_N_XTB_RESULTS.csv + ROUND_N_CANDIDATES.csv rationale columns + DESIGN_SPEC_LOCKED.md xTB proxy targets section]
+prompt: the Step 9.5 packet (see "Building the packet" below) -- locked spec,
+        candidate rationales, xTB results when they exist, and the named prior
+        evidence files.
 ```
 
 Use `mcp__gemini-review__review_start` + `mcp__gemini-review__review_status` for async.
+
+## Building the packet
+
+Do not retype artifacts into the prompt. Build the packet from the round files and
+give Gemini the path:
+
+```bash
+python3 scripts/build_gemini_inputs.py \
+  --round-dir molecule-design-stage --skill-refs <skill>/references \
+  --out molecule-design-stage/_gemini_inputs --round N --steps 9.5
+# -> molecule-design-stage/_gemini_inputs/step9.5_claim_audit_input.md
+```
+
+The packet copies this step's `system:` block verbatim, then the locked spec and the
+raw columns this step needs. "Raw artifacts, never a summary" is about what the
+reviewer reads; it does not require moving the bytes through the conversation.
 
 ## Output: ROUND_N_CLAIM_AUDIT.md
 
