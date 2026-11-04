@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.3.0-blue)
+![Status](https://img.shields.io/badge/status-v0.3.1-blue)
 
 一个面向 agent 的开源分子与聚合物设计 skill，Claude Code 和 Codex 都能用，强调约束驱动设计。把用户的 Zotero 文献库与主动文献检索结合起来，配合对抗性化学审查、新颖性检查和结果→结论审计，以及 RDKit 过滤、看图确认和 xTB 前的人工审批。结构和审查输入包由带测试的脚本生成，不再由模型手写。
 
@@ -17,12 +17,16 @@
 
 ## 当前状态
 
-- 当前发布：`v0.2.6` — 排序诊断落地为确定性脚本（`scripts/ranking_diagnostics.py`）
+- 当前发布：`v0.3.1` — token 经济性（路由式 SKILL.md、生成候选表与审查输入包、有界文件查看、仓库契约测试），并修正 Step 9.5 输入包的 xTB 列名
 - 仓库定位：模块化 Codex skill，Zotero 驱动、对抗性审查的分子设计
 - 更新记录：[CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - 分享包范围说明：[SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## 版本轨迹
+
+**v0.3.1**（2026-11-04）— 修复：Step 9.5 输入包脚本读 xTB 结果文件用的列名不是 `candidate_schema.md` 规定的那套，按 schema 写的轮次文件因此产出一个没有数字的证据段；而测试数据用的是脚本自己的列名，所以测试一直没抓到。现在以 schema 列名为准，旧列名作为别名接受，缺失的必需列会被点名而不是静默丢掉。
+
+**v0.3.0**（2026-11-04）— token 经济性。一整轮设计的成本远超其化学含量：模型手写派生列、整篇读参考与轮次文件、再把溢出到磁盘的长输出读回来。SKILL.md 改为带明确阅读规则与交接点的步骤路由；`build_candidates.py`、`build_gemini_inputs.py`、`inspect_round.py` 把派生数据、审查输入包和文件查看搬进带测试的代码；`test_skill_contract.py` 强制 SKILL.md 的行数预算、链接有效、脚本有测试、本机路径不进仓库。
 
 **v0.2.6**（2026-11-04）— v0.2.5 的排序诊断变成一个确定性、带测试的脚本（`scripts/ranking_diagnostics.py`）：支配判定、pareto/shadow 排名、具体的排除理由、Kendall τ-b 矩阵、被支配/被评估计数，仅标准库，带 `--benchmark-ids` 已知化合物回收。用代码强制"unknown 不可比、绝不用哨兵值"。
 

@@ -61,7 +61,7 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
-def make_round(with_gate=True, with_xtb=False, with_state=False):
+def make_round(with_gate=True, with_xtb=False, with_state=False, legacy_xtb_columns=False):
     root = tempfile.mkdtemp()
     with open(os.path.join(root, "DESIGN_SPEC_LOCKED.md"), "w", encoding="utf-8") as handle:
         handle.write("# Locked spec\n\nhard_constraints: neutral, C/H/N/O only\n")
@@ -69,11 +69,15 @@ def make_round(with_gate=True, with_xtb=False, with_state=False):
     if with_gate:
         write_csv(os.path.join(root, "ROUND_1_SYNTHESIS_FEASIBILITY.csv"), GATE_ROWS)
     if with_xtb:
-        write_csv(
-            os.path.join(root, "ROUND_1_XTB_RESULTS.csv"),
-            [{"candidate_id": "C1", "method": "GFN2-xTB", "optimization_status": "converged",
-              "homo_lumo_gap_ev": "3.9"}],
-        )
+        # The schema names (references/candidate_schema.md), which is what a round
+        # file actually carries; `legacy_xtb_columns` writes the older spellings the
+        # packet builder used to read, to check both still resolve.
+        row = {"candidate_id": "C1", "xtb_status": "pass", "xtb_command": "GFN2-xTB",
+               "energy_hartree": "-123.456789", "gap_ev": "3.9"}
+        if legacy_xtb_columns:
+            row = {"candidate_id": "C1", "optimization_status": "pass", "method": "GFN2-xTB",
+                   "final_energy": "-123.456789", "homo_lumo_gap_ev": "3.9"}
+        write_csv(os.path.join(root, "ROUND_1_XTB_RESULTS.csv"), [row])
     if with_state:
         with open(os.path.join(root, "DESIGN_LOOP_STATE.json"), "w", encoding="utf-8") as handle:
             json.dump({"prior_computational_evidence": {"stage_a": "calc/stage_a/RESULTS.md"}}, handle)
@@ -149,8 +153,36 @@ class TestPackets(unittest.TestCase):
     def test_audit_packet_lists_xtb_results_when_present(self):
         _, out = run(make_round(with_xtb=True))
         text = read(os.path.join(out, "step9.5_claim_audit_input.md"))
-        self.assertIn("homo_lumo_gap_ev", text)
+        self.assertIn("gap_ev", text)
         self.assertNotIn("No xTB ran this round", text)
+        # The numbers themselves must reach the reviewer: a packet whose evidence
+        # section holds only headers is what the column-name mismatch produced.
+        for value in ("GFN2-xTB", "-123.456789", "3.9"):
+            self.assertIn(value, text)
+
+    def test_audit_packet_reads_legacy_xtb_column_names(self):
+        _, out = run(make_round(with_xtb=True, legacy_xtb_columns=True))
+        text = read(os.path.join(out, "step9.5_claim_audit_input.md"))
+        for value in ("GFN2-xTB", "-123.456789", "3.9"):
+            self.assertIn(value, text)
+        # ...and reports them under the schema's names.
+        self.assertIn("gap_ev", text)
+        self.assertNotIn("homo_lumo_gap_ev", text)
+
+    def test_audit_packet_carries_requested_extra_columns(self):
+        root = make_round(with_xtb=True)
+        write_csv(os.path.join(root, "ROUND_1_XTB_RESULTS.csv"),
+                  [{"candidate_id": "C1", "xtb_status": "pass", "best_E_int": "-34.3"}])
+        _, out = run(root, "--xtb-extra-columns", "best_E_int")
+        text = read(os.path.join(out, "step9.5_claim_audit_input.md"))
+        self.assertIn("best_E_int", text)
+        self.assertIn("-34.3", text)
+
+    def test_audit_packet_names_missing_schema_columns(self):
+        _, out = run(make_round(with_xtb=True))
+        text = read(os.path.join(out, "step9.5_claim_audit_input.md"))
+        self.assertIn("does not carry", text)
+        self.assertIn("dipole_debye", text)
 
     def test_prior_evidence_is_named_not_embedded(self):
         _, out = run(make_round(with_state=True))

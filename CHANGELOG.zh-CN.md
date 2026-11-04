@@ -4,6 +4,32 @@
 
 ---
 
+## v0.3.1 — 2026-11-04
+
+### 新增
+
+- `scripts/build_gemini_inputs.py --xtb-extra-columns`：把本轮自己的 xTB 读数带进
+  Step 9.5 的证据段。schema 里那几个通用列（能量、gap、偶极）并不是每一轮真正测的
+  东西；以相互作用能或接触计数为证据的一轮，原先没有办法把这些数字摆到审计方面前，
+  而只给文件名不等于提交证据。
+
+### 修复
+
+- `scripts/build_gemini_inputs.py` 读 xTB 结果文件时用的列名不是
+  `references/candidate_schema.md` 规定的那套：脚本读 `method`、
+  `optimization_status`、`final_energy`、`homo_lumo_gap_ev`、`geometry_sanity`、
+  `convergence_failure_reason`，而 schema 规定的是 `xtb_command`、`xtb_status`、
+  `energy_hartree`、`gap_ev`、`geometry_warning`、`notes`。只有 `candidate_id` 和
+  `dipole_debye` 重合，所以按 schema 写出的轮次文件会产出一个没有任何数字的
+  Step 9.5 证据段——声明审计被送到审查方手里时，这一轮的结果是缺的。现在脚本按
+  schema 的列名读取，把旧列名作为别名接受（已有轮次文件照旧可用）、统一按 schema
+  的名字呈现，并点名文件缺少的必需列，而不是静默丢掉。
+- `scripts/test_build_gemini_inputs.py` 的测试数据用的是脚本自己的列名，所以这个
+  不一致一直通过测试。现在测试数据改用 schema 的列名，另加一组旧列名的测试数据，
+  两组都断言**数值本身**（不只是表头）进入了输入包。
+
+---
+
 ## v0.3.0 — 2026-11-04
 
 Token 经济性。一轮完整设计的开销远超其化学工作量本身，实测记录说明了原因：模型手写

@@ -106,19 +106,52 @@ def system_prompt(path):
     return match.group(0)
 
 
-def csv_subset(path, columns):
-    """Those of `columns` that exist, as CSV text. Returns (text, missing)."""
+# The xTB columns `references/candidate_schema.md` requires, and the spellings
+# this script read before it was aligned with that schema. A round file written
+# to the schema used to produce an evidence section with every cell empty, which
+# is how an audit packet reached a reviewer carrying no numbers; keep the aliases
+# so files written either way are read correctly.
+XTB_EVIDENCE_COLUMNS = [
+    "candidate_id", "xtb_status", "xtb_command", "energy_hartree", "homo_ev",
+    "lumo_ev", "gap_ev", "dipole_debye", "geometry_warning", "notes",
+    "model_type", "oligomer_n", "unsupported_polymer_claims",
+]
+XTB_COLUMN_ALIASES = {
+    "xtb_status": ["optimization_status"],
+    "xtb_command": ["method"],
+    "energy_hartree": ["final_energy"],
+    "gap_ev": ["homo_lumo_gap_ev"],
+    "geometry_warning": ["geometry_sanity"],
+    "notes": ["convergence_failure_reason"],
+}
+
+
+def csv_subset(path, columns, aliases=None):
+    """Those of `columns` that exist, as CSV text. Returns (text, missing).
+
+    `aliases` maps a schema column name to older spellings that mean the same
+    thing. A column absent under its schema name but present under an alias is
+    read from the alias and written out under the schema name, so a round file
+    written to either convention produces the same packet.
+    """
+    aliases = aliases or {}
     with open(path, encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     if not rows:
         return "", columns
-    present = [c for c in columns if c in rows[0]]
-    missing = [c for c in columns if c not in rows[0]]
+    source = {}
+    for column in columns:
+        for name in [column] + list(aliases.get(column, ())):
+            if name in rows[0]:
+                source[column] = name
+                break
+    present = [c for c in columns if c in source]
+    missing = [c for c in columns if c not in source]
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(present)
     for row in rows:
-        writer.writerow([row.get(c, "") for c in present])
+        writer.writerow([row.get(source[c], "") for c in present])
     return buffer.getvalue(), missing
 
 
@@ -176,16 +209,18 @@ def evidence_section(paths):
     lines = ["## Computational evidence referenced this round\n"]
     xtb = paths.get("xtb")
     if xtb and os.path.exists(xtb):
-        body, _ = csv_subset(
-            xtb,
-            [
-                "candidate_id", "method", "optimization_status", "final_energy",
-                "homo_lumo_gap_ev", "dipole_debye", "geometry_sanity",
-                "convergence_failure_reason",
-            ],
-        )
+        columns = XTB_EVIDENCE_COLUMNS + [
+            c for c in paths.get("xtb_extra_columns") or [] if c not in XTB_EVIDENCE_COLUMNS
+        ]
+        body, missing = csv_subset(xtb, columns, XTB_COLUMN_ALIASES)
         if body:
-            lines.append(f"From `{os.path.basename(xtb)}`:\n" + fence(body))
+            heading = f"From `{os.path.basename(xtb)}`:"
+            if missing:
+                heading += (
+                    "\n\nColumns `candidate_schema.md` asks for that this round's file does not"
+                    f" carry: {', '.join(missing)}."
+                )
+            lines.append(heading + "\n" + fence(body))
     else:
         lines.append(
             "No xTB ran this round. This is case 2 of the audit protocol: the packet's\n"
@@ -222,6 +257,12 @@ def main():
     parser.add_argument(
         "--steps", nargs="*", choices=sorted(STEPS), help="steps to build (default: all)"
     )
+    parser.add_argument(
+        "--xtb-extra-columns", default="",
+        help="comma-separated extra columns of ROUND_N_XTB_RESULTS.csv to carry into the "
+             "Step 9.5 evidence section, for a round whose readouts are not the schema's "
+             "generic ones (e.g. interaction energies, contact counts)",
+    )
     args = parser.parse_args()
 
     round_dir, round_no = args.round_dir, args.round
@@ -237,6 +278,7 @@ def main():
         "gate": os.path.join(round_dir, f"ROUND_{round_no}_SYNTHESIS_FEASIBILITY.csv"),
         "xtb": os.path.join(round_dir, f"ROUND_{round_no}_XTB_RESULTS.csv"),
         "state": os.path.join(round_dir, "DESIGN_LOOP_STATE.json"),
+        "xtb_extra_columns": [c.strip() for c in args.xtb_extra_columns.split(",") if c.strip()],
     }
     os.makedirs(args.out, exist_ok=True)
 

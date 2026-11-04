@@ -4,6 +4,36 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.3.1 — 2026-11-04
+
+### Added
+
+- `scripts/build_gemini_inputs.py --xtb-extra-columns` carries a round's own xTB
+  readouts into the Step 9.5 evidence section. The schema's generic columns
+  (energy, gap, dipole) are not what every round measures; a round whose evidence
+  is interaction energies or contact counts had no way to put those numbers in
+  front of the auditor, and naming a file is not submitting it.
+
+### Fixed
+
+- `scripts/build_gemini_inputs.py` read the xTB results file under column names
+  that `references/candidate_schema.md` does not use. It selected `method`,
+  `optimization_status`, `final_energy`, `homo_lumo_gap_ev`, `geometry_sanity` and
+  `convergence_failure_reason`, while the schema names those columns `xtb_command`,
+  `xtb_status`, `energy_hartree`, `gap_ev`, `geometry_warning` and `notes`. Only
+  `candidate_id` and `dipole_debye` overlapped, so a round file written to the
+  schema produced a Step 9.5 evidence section with no numbers in it — the claim
+  audit went to the reviewer with the round's results missing. The script now reads
+  the schema's names, accepts the older spellings as aliases so existing round files
+  still work, reports them under the schema's names, and names any required column
+  the file does not carry instead of dropping it silently.
+- `scripts/test_build_gemini_inputs.py` built its fixture with the script's own
+  column names, which is why the mismatch passed the suite. The fixture now uses the
+  schema's names, a second fixture covers the legacy spellings, and both assert that
+  the values — not just the headers — reach the packet.
+
+---
+
 ## v0.3.0 — 2026-11-04
 
 Token economy. A full design round cost far more than its chemistry warranted, and
