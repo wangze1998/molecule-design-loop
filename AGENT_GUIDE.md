@@ -2,7 +2,7 @@
 
 **For AI agents reading this repo.** If you are a human, start with [README.md](README.md).
 
-`molecule-design-loop` is a Codex skill for constraint-driven molecular design. It turns a Markdown design brief into a reviewable candidate loop:
+`molecule-design-loop` is an agent skill (Claude Code and Codex) for constraint-driven molecular design. It turns a Markdown design brief into a reviewable candidate loop:
 
 ```text
 [optional image extraction (0.5)]
@@ -55,9 +55,28 @@ Use it when the user wants a molecule design loop with:
 
 Do not use it when the user wants xTB alone, docking alone, or unconstrained novelty generation.
 
+## Context Rules
+
+This loop writes large files; reading them whole is the main way a run becomes
+expensive. Four rules, stated in full in SKILL.md:
+
+1. **Read narrowly.** Open the one reference the current step names. Never `cat` a
+   candidate CSV, a gallery or a literature packet — use `scripts/inspect_round.py`.
+   If output was spilled to a file for being too long, re-run it narrower instead of
+   reading that file back.
+2. **Generate, don't type.** Derived columns belong to `scripts/build_candidates.py`.
+   Write judgement fields in a config; `--print-columns` shows the split.
+3. **Pass paths, not payloads.** Build review packets with
+   `scripts/build_gemini_inputs.py` and hand Gemini the path.
+4. **Hand off between stages.** Write `DESIGN_LOOP_STATE.json` and continue in a
+   fresh session after Step 2, at the Step 7 approval, and between rounds.
+
 ## Core Files
 
 - `molecule-design-loop/SKILL.md` — main specification
+- `molecule-design-loop/scripts/build_candidates.py` — one YAML config to `ROUND_N_CANDIDATES.csv`; derives the mechanical columns and validates every structure
+- `molecule-design-loop/scripts/build_gemini_inputs.py` — Step 3.5 / 5.5 / 9.5 review packets from the round files
+- `molecule-design-loop/scripts/inspect_round.py` — bounded views of a round file (stdlib only)
 - `molecule-design-loop/scripts/rdkit_filter_candidates.py` — filter and annotate candidate CSV files
 - `molecule-design-loop/scripts/render_candidate_gallery.py` — render HTML gallery from filtered CSV
 - `molecule-design-loop/scripts/ranking_diagnostics.py` — deterministic Step 11 ranking diagnostics (dominance, pareto/shadow ranks, τ-b redundancy matrix); stdlib only
@@ -119,8 +138,8 @@ Prefer a project-local `molecule-design-stage/` directory with:
 2. Lock the design brief into `DESIGN_SPEC_LOCKED.md`.
 3. Run Zotero extraction (1.5-A) and active search (1.5-B) in parallel.
 4. Merge into `LIT_PACKET.md`; flag contradictions.
-5. Generate interpretable SMILES candidates tied to specific constraints. Before generating, read `DESIGN_LOOP_STATE.json` and exclude any candidate matching a `killed_motifs[]` SMARTS/scaffold (Step 3, Fix A); bias a portion toward `available_building_blocks[]` (Fix C).
-6. Run Gemini adversarial review (Step 3.5) on raw candidates.
+5. Generate interpretable SMILES candidates with `build_candidates.py`, tied to specific constraints. Before generating, read `DESIGN_LOOP_STATE.json` and exclude any candidate matching a `killed_motifs[]` SMARTS/scaffold (Step 3, Fix A); bias a portion toward `available_building_blocks[]` (Fix C).
+6. Run Gemini adversarial review (Step 3.5): build the packet with `build_gemini_inputs.py --steps 3.5` and pass its path.
 7. Run deterministic RDKit filtering with `--forbidden-smarts` = spec `forbidden_motifs` ∪ `DESIGN_LOOP_STATE.json` `killed_motifs[].smarts`; keep rejection reasons.
 8. Run synthesis-feasibility gate (Step 5), emitting sortable `synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, and `hazard_toxicity_flag`; record `route_alternatives` when more than one route is supported by evidence.
 9. Run novelty check (Step 5.5).
@@ -155,10 +174,13 @@ Prefer a project-local `molecule-design-stage/` directory with:
 Useful checks in this repo:
 
 ```bash
-python3 molecule-design-loop/scripts/test_rdkit_filter_candidates.py
-python3 molecule-design-loop/scripts/test_render_candidate_gallery.py
-python3 molecule-design-loop/scripts/test_ranking_diagnostics.py   # stdlib only, no RDKit needed
+python3 -m pytest molecule-design-loop/scripts          # all of them
+python3 -m pytest molecule-design-loop/scripts/test_skill_contract.py   # repo contract
 ```
+
+The contract test enforces the SKILL.md line budget, live links, tested scripts and
+no local paths. If it fails because SKILL.md grew, move the detail into
+`references/` rather than raising the limit.
 
 Install locally with:
 

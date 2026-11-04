@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.6-blue)
+![Status](https://img.shields.io/badge/status-v0.3.0-blue)
 
-一个面向agent的开源分子与聚合物设计 skill，强调约束驱动设计。集成用户 Zotero 文献库和 Gemini MCP 实现双流文献智能、对抗性化学审查、新颖性检查和结果→结论审计。现支持结构图像输入和 Claude 原生 NMR 预测。
+一个面向 agent 的开源分子与聚合物设计 skill，Claude Code 和 Codex 都能用，强调约束驱动设计。把用户的 Zotero 文献库与主动文献检索结合起来，配合对抗性化学审查、新颖性检查和结果→结论审计，以及 RDKit 过滤、看图确认和 xTB 前的人工审批。结构和审查输入包由带测试的脚本生成，不再由模型手写。
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md) | [分享包说明](SHARE_PACKAGE.zh-CN.md)
 
-> **当前版本：v0.2.6**（2026-11-04）。新增：v0.2.5 的排序诊断现在落地为确定性脚本 `scripts/ranking_diagnostics.py`——实用性支配、`pareto_rank`、仅按性质契合度的 `shadow_rank_property_only` 消融、Kendall τ-b 冗余矩阵、被支配/被评估计数，unknown 保持不可比（绝不用哨兵值），并带 `--benchmark-ids` 已知化合物回收检验。仅标准库，自带测试。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+> **当前版本：v0.3.0**（2026-11-04）。这是一次 token 经济性发布：SKILL.md 改成路由（457 → 276 行），`scripts/build_candidates.py` 由一个结构推导出全部机械列并在写出前逐条校验，`scripts/build_gemini_inputs.py` 由轮次文件拼出 Step 3.5 / 5.5 / 9.5 的审查输入包，`scripts/inspect_round.py` 提供大文件的有界视图。契约测试负责让 SKILL.md 保持精简、链接有效、本机路径不进仓库。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 > **xTB 前的人类审批仍然是强制的。** **Zotero MCP 和 Gemini MCP 需要配置**才能使用新步骤——不可用时工作流优雅降级。
 
 如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。

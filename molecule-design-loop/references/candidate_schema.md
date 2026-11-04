@@ -16,6 +16,24 @@ Every candidate must trace back to at least one source in `LIT_PACKET.md`. Recor
 
 When a candidate is motivated by active-search findings (not Zotero), record `source: active_search` in the rationale.
 
+### Who writes which column
+
+`scripts/build_candidates.py` derives every mechanical column from one structure:
+the SMILES copies (`smiles`, `canonical_smiles`, `rdkit_input_smiles`,
+`rdkit_display_smiles`, `oligomer_model_smiles`), formula and mass, backbone atom
+indices, repeat-unit drawing, and the side-chain summaries. It refuses a config
+that sets them, so the CSV cannot disagree with the molecule it was built from.
+
+Write only the judgement columns -- the design move, what it tests, why, the risk,
+and the synthesis hypothesis. Run `build_candidates.py --print-columns` for the
+current split, and see `examples/example_candidates_config.yaml` for a worked file.
+Prose repeated on every row (surrogate scope, evidence role) belongs in the config's
+`text_blocks`, written once.
+
+Hand-writing the full table is still valid when no config fits, but then the four
+SMILES copies must be byte-identical and the atom indices must refer to
+`rdkit_display_smiles`.
+
 ### Required columns
 
 - `candidate_id`

@@ -4,6 +4,70 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.3.0 — 2026-11-04
+
+Token economy. A full design round cost far more than its chemistry warranted, and
+the measurement showed why: in a recorded run the model hand-wrote derived columns,
+read whole reference and round files, and re-read long output that had been spilled
+to disk. Almost none of that was design work. This release moves the mechanical
+parts into tested code and makes the reading rules explicit, without changing any
+scientific rule.
+
+### Added
+
+- `scripts/build_candidates.py` — one YAML config to `ROUND_N_CANDIDATES.csv`.
+  Structures are assembled from named fragments onto a `scaffolds` template
+  (discrete molecules) or a `chains` template (polymers), and the script derives
+  every mechanical column: the four SMILES copies, canonical form, formula, mass,
+  backbone atom indices, repeat-unit drawing and side-chain summaries. It refuses a
+  config that sets a derived column, so the table cannot disagree with the molecule
+  it was built from. `text_blocks` holds prose repeated across rows, written once.
+- Structure validation at build time, stopping the run on the first failure: parses,
+  stays within `allowed_elements`, respects a formal-charge limit, matches the motif
+  counts its fragments and template declare, and carries the CIP labels the template
+  requires. A config that builds the wrong molecule now fails loudly instead of
+  reaching the gallery.
+- `scripts/build_gemini_inputs.py` — assembles the Step 3.5 / 5.5 / 9.5 review
+  packets from the round files: the step's `system:` block verbatim, the locked
+  spec, and the columns that reviewer needs. The novelty packet carries SMILES and
+  stereochemistry, without which a prior-art result is a keyword search under
+  another name. Missing inputs are declared, never faked.
+- `scripts/inspect_round.py` — bounded views of large round files (`summary`,
+  `cols`, `row`, `grep`, `check`, `html`), each announcing what it truncated.
+  `html` reports a gallery's size and element tallies without printing markup.
+- `scripts/test_skill_contract.py` — enforces the SKILL.md line budget and
+  description limit, that every relative link resolves, that no reference is
+  orphaned or oversized, that every script parses, is documented and has tests, and
+  that no local path or secret is committed.
+- `examples/example_candidates_config.yaml` — a worked config using plain chemistry.
+- Tests for each new script (80 in total, from 33).
+
+### Changed
+
+- SKILL.md is now a router: 457 → 276 lines, 36 KB → 17 KB. The workflow is a step
+  table naming the one reference to read and the script to run; justification moved
+  into the protocol references. Every scientific rule is kept — the integrity rules
+  are now a numbered list, each with its reason.
+- New "Working rules" section: read narrowly, generate rather than type, pass paths
+  rather than payloads, and hand off between stages through
+  `DESIGN_LOOP_STATE.json` instead of carrying a whole run in one context.
+- `ZOTERO_METADATA_LIMIT` is 10 per query, not 30; full texts are read as keyword
+  windows rather than end to end.
+- The three Gemini protocols now build their packet with a script. "Raw artifacts,
+  never a summary" is unchanged — it governs what the reviewer reads, and never
+  required moving the bytes through the conversation.
+- `candidate_schema.md` states which columns are derived and which need judgement.
+- The frontmatter carries `license`, `metadata.version` and `requires`; the
+  description is trigger-rich and within the 1024-character limit.
+
+### Fixed
+
+- `inspect_round.py` accepts `--width` before or after its subcommand; an argparse
+  default would otherwise have silently overridden the value given first.
+- Compiled `__pycache__` files are no longer tracked.
+
+---
+
 ## v0.2.6 — 2026-11-04
 
 Turns the v0.2.5 ranking diagnostics from a prose specification into a deterministic script. v0.2.5 defined the axis-redundancy check and the practicality ablation but left the arithmetic — dominance, ranks, Kendall τ-b, the dominated/assessed count — to be done by hand each round, which is exactly where the integrity rules it added are easiest to break. This release implements that arithmetic in code so the numbers are reproducible and the "unknown is non-comparable, never a sentinel" rule is enforced mechanically. First release in this line to add Python.

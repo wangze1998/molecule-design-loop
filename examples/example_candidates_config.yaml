@@ -1,0 +1,132 @@
+# Worked example for scripts/build_candidates.py
+#
+#   build_candidates.py --config example_candidates_config.yaml --check-only
+#   build_candidates.py --config example_candidates_config.yaml --out ROUND_1_CANDIDATES.csv
+#
+# The chemistry is deliberately plain (substituted N-methylbenzamides and a
+# peptoid-like chain) so the file reads as a format example, not as a design.
+#
+# What belongs here: the choices that need chemical judgement -- which fragment
+# goes where, and why this candidate is worth making.
+# What does not: anything the script can derive. It computes the SMILES copies,
+# canonical form, formula, mass, backbone atom indices, repeat-unit drawing and
+# side-chain summaries, and refuses a config that sets them. Run
+# `build_candidates.py --print-columns` to see the split.
+
+allowed_elements: [C, H, N, O, F]
+
+# Each structure must contain exactly the motifs its pieces declare. This is what
+# catches an assembly that still parses but built the wrong thing -- a ring closure
+# that consumed a carbonyl, or a fragment that attached twice.
+count_smarts:
+  amide: "C(=O)N"
+
+fragments:
+  methyl:   {smiles: "C",     desc: "methyl",             label: "Me"}
+  methoxy:  {smiles: "OC",    desc: "methoxy",            label: "OMe"}
+  fluoro:   {smiles: "F",     desc: "fluoro",             label: "F"}
+  # Fragments may reference each other as {name}, so a shared arm is written once.
+  glycol:   {smiles: "OCCOC", desc: "2-methoxyethoxy arm", label: "EG"}
+  n_methyl: {smiles: "C",     desc: "N-methyl",            label: "NMe"}
+  n_glycol: {smiles: "CC{glycol}", desc: "N-(glycol ether) arm", label: "NEG"}
+
+scaffolds:
+  benzamide:
+    template: "{r1}c1ccc({r2})cc1C(=O)NC"
+    counts: {amide: 1}          # the scaffold's own amide
+
+chains:
+  peptoid:
+    start: "CC(=O)"             # acetyl cap
+    segment: "N({x})CC(=O)"     # {x} is the N-substituent for this residue
+    end: "NC"                   # methylamide cap
+    display_unit: "[*:1]N({x})CC([*:2])=O"
+    path_smarts: "[NX3][CX4H2][CX3]=O"
+    path_keep: [0, 1, 2]
+    sidechain_every: [0, 3]     # start at path atom 0, every 3rd atom
+    counts: {amide: 1}          # the end group
+    counts_per_unit: {amide: 1} # one backbone amide per residue
+    start_label: "N-terminus (acetyl)"
+    end_label: "C-terminus (methylamide)"
+    end_group_model: "acetyl / methylamide"
+    polymerization_route: "N-carboxyanhydride ring-opening polymerisation"
+    tacticity: "achiral backbone"
+    # Optional stereochemistry guard, for a chiral backbone:
+    # stereo_smarts: "[CX4H1]([NX3])(C)C=O"
+    # stereo_cip: [S]
+
+# Prose that would otherwise repeat on every row. Written once, referenced as
+# {{name}}; a row's own fields are available as {column}.
+text_blocks:
+  surrogate: >-
+    Finite capped oligomer whose composition matches the intended substitution.
+    It supports conformer and frontier-orbital comparisons between candidates and
+    nothing about chain length, dispersity, morphology or bulk properties.
+  evidence: >-
+    RDKit descriptors and xTB proxies only. No binding, potency or assembly claim
+    is supported by this round.
+
+defaults:
+  design_mode: small_molecule
+  zotero_grounding: none
+  computational_evidence_role: "{{evidence}}"
+
+candidates:
+  - candidate_id: C1
+    scaffold: benzamide
+    slots: {r1: methyl, r2: methoxy}
+    role: lead
+    design_move: "para methoxy in place of methyl"
+    target_constraint: "raise the HOMO without adding rotatable bonds"
+    rationale: "{candidate_id}: tests whether a para donor shifts the frontier orbital on its own."
+    expected_proxy_effect: "higher HOMO, smaller gap than C2"
+    risk: "O-demethylation under acidic workup"
+    source_hint: "substituent-electronics series in LIT_PACKET"
+    synthesis_hypothesis: "amide coupling from the commercial benzoic acid"
+    make_or_buy_hint: buy
+    building_block_source: purchasable
+    experimental_readout: "UV-vis absorption onset"
+
+  - candidate_id: C2
+    scaffold: benzamide
+    slots: {r1: methyl, r2: methyl}
+    role: control
+    design_move: "para methyl, unchanged from the seed"
+    target_constraint: "baseline for the electronics comparison"
+    rationale: "{candidate_id}: conservative control; any shift seen in C1 is read against this."
+    expected_proxy_effect: "no change from the seed"
+    risk: none
+    synthesis_hypothesis: "commercially available"
+    make_or_buy_hint: buy
+    building_block_source: in_stock
+    experimental_readout: "UV-vis absorption onset"
+
+  - candidate_id: C3
+    scaffold: benzamide
+    slots: {r1: fluoro, r2: glycol}
+    role: lead
+    design_move: "ortho fluoro plus a para glycol ether"
+    target_constraint: "add water solubility without losing the twist"
+    rationale: "{candidate_id}: two moves at once, so read it only against C1 and C2."
+    expected_proxy_effect: "higher TPSA; frontier orbitals close to C1"
+    risk: "two changes in one candidate make attribution weaker"
+    synthesis_hypothesis: "Williamson etherification then amide coupling"
+    make_or_buy_hint: make_on_demand
+    building_block_source: purchasable
+    experimental_readout: "aqueous solubility, UV-vis"
+
+  - candidate_id: P1
+    chain: peptoid
+    units: [n_glycol, n_methyl, n_methyl, n_methyl]
+    role: lead
+    design_mode: polymer
+    polymer_design_mode: mechanism_first
+    target_type: oligomer
+    design_move: "one glycol-ether residue in four"
+    target_constraint: "water solubility at low substitution"
+    rationale: "{candidate_id}: lowest substitution that could carry the chain into water."
+    expected_proxy_effect: "higher TPSA per residue than the all-methyl chain"
+    risk: "substitution too low to solubilise"
+    surrogate_scope: "{{surrogate}}"
+    xtb_input_model: capped_oligomer
+    experimental_readout: "cloud point, NMR in D2O"

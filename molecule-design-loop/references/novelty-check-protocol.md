@@ -13,6 +13,22 @@ domain: [scaffold class from design spec, e.g. "cyclic peptide", "BODIPY dye", "
 notes: "Check whether each described structure has been previously reported. Flag exact matches and close structural analogs (scaffold + key substituents identical). Report the original paper DOI when a match is found."
 ```
 
+## Building the packet
+
+Do not retype artifacts into the prompt. Build the packet from the round files and
+give Gemini the path:
+
+```bash
+python3 scripts/build_gemini_inputs.py \
+  --round-dir molecule-design-stage --skill-refs <skill>/references \
+  --out molecule-design-stage/_gemini_inputs --round N --steps 5.5
+# -> molecule-design-stage/_gemini_inputs/step5.5_prior_art_input.md
+```
+
+The packet copies this step's `system:` block verbatim, then the locked spec and the
+raw columns this step needs. "Raw artifacts, never a summary" is about what the
+reviewer reads; it does not require moving the bytes through the conversation.
+
 ## Output: ROUND_N_NOVELTY_CHECK.md
 
 ```markdown
