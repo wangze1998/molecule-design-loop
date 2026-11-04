@@ -1,0 +1,46 @@
+name: privacy-scan
+
+# This repo is public. Fail if a change brings in local paths, secrets, or
+# maintainer-specific strings. Extra private patterns (one ERE per line) can be
+# kept out of the repo in the PRIVATE_PATTERNS Actions secret.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan tracked files
+        env:
+          PRIVATE_PATTERNS: ${{ secrets.PRIVATE_PATTERNS }}
+        run: |
+          {
+            printf '%s\n' \
+              '/Users/[A-Za-z0-9_-][A-Za-z0-9._-]*' \
+              '/home/[A-Za-z0-9_-][A-Za-z0-9._-]*/' \
+              '[A-Za-z]:\\Users\\[A-Za-z0-9_-]' \
+              'sk-[A-Za-z0-9_-]{20,}' \
+              'sk-ant-[A-Za-z0-9_-]{20,}' \
+              'AIza[0-9A-Za-z_-]{30,}' \
+              'gh[pousr]_[A-Za-z0-9]{30,}' \
+              '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+            printf '%s\n' "$PRIVATE_PATTERNS"
+          } | sed '/^[[:space:]]*$/d' > /tmp/patterns
+
+          git ls-files -z -- . ':!.github/workflows/privacy-scan.yml' \
+            | xargs -0 grep -nIE -f /tmp/patterns -- > /tmp/hits || true
+
+          if [ -s /tmp/hits ]; then
+            echo "::error::Possible private content in a public repo:"
+            cat /tmp/hits
+            exit 1
+          fi
+          echo "No matches."
