@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.5-blue)
+![Status](https://img.shields.io/badge/status-v0.2.6-blue)
 
 一个面向agent的开源分子与聚合物设计 skill，强调约束驱动设计。集成用户 Zotero 文献库和 Gemini MCP 实现双流文献智能、对抗性化学审查、新颖性检查和结果→结论审计。现支持结构图像输入和 Claude 原生 NMR 预测。
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md) | [分享包说明](SHARE_PACKAGE.zh-CN.md)
 
-> **当前版本：v0.2.5**（2026-11-03）。新增：排序现在能审计自己。每轮运行两个低成本诊断——**Kendall τ-b 轴冗余检验**（五条实用性轴真的是五个独立考量吗？支配判据这一轮到底支配掉了谁？）与**实用性消融**（仅按性质契合度重排，明确指出实用性约束把哪些高分候选挡在了台架之外）。两者无论结果是否好看都要报告。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+> **当前版本：v0.2.6**（2026-11-04）。新增：v0.2.5 的排序诊断现在落地为确定性脚本 `scripts/ranking_diagnostics.py`——实用性支配、`pareto_rank`、仅按性质契合度的 `shadow_rank_property_only` 消融、Kendall τ-b 冗余矩阵、被支配/被评估计数，unknown 保持不可比（绝不用哨兵值），并带 `--benchmark-ids` 已知化合物回收检验。仅标准库，自带测试。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 > **xTB 前的人类审批仍然是强制的。** **Zotero MCP 和 Gemini MCP 需要配置**才能使用新步骤——不可用时工作流优雅降级。
 
 如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。
@@ -17,12 +17,14 @@
 
 ## 当前状态
 
-- 当前发布：`v0.2.5` — 排序诊断：轴冗余检验 + 实用性消融
+- 当前发布：`v0.2.6` — 排序诊断落地为确定性脚本（`scripts/ranking_diagnostics.py`）
 - 仓库定位：模块化 Codex skill，Zotero 驱动、对抗性审查的分子设计
 - 更新记录：[CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - 分享包范围说明：[SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## 版本轨迹
+
+**v0.2.6**（2026-11-04）— v0.2.5 的排序诊断变成一个确定性、带测试的脚本（`scripts/ranking_diagnostics.py`）：支配判定、pareto/shadow 排名、具体的排除理由、Kendall τ-b 矩阵、被支配/被评估计数，仅标准库，带 `--benchmark-ids` 已知化合物回收。用代码强制"unknown 不可比、绝不用哨兵值"。
 
 **v0.2.5**（2026-11-03）— 排序开始审计自己。五条排序轴之间的 Kendall τ-b 冗余矩阵（用 τ-b 而非 Pearson——这些轴是并列极多的有序变量）、强制报告 `candidates_dominated / candidates_assessed`（避免"什么都没支配掉"的判据冒充一个在起作用的闸门）、以及仅按性质契合度的 `shadow_rank_property_only` 消融排序，逐一点名被实用性约束排除的候选及其原因。
 
@@ -56,6 +58,7 @@
 
 ## 最近更新
 
+- **2026-11-04** — v0.2.6：排序诊断落地为确定性、带测试的脚本（`scripts/ranking_diagnostics.py`）。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-11-03** — v0.2.5：排序开始审计自己——轴冗余检验、被支配数报告、以及揭示约束实际代价的实用性消融。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-06-12** — v0.2.2：强制跨轮失败记忆（`DESIGN_LOOP_STATE.json` schema；步骤 3/4 排除已杀死母核）、合成成本排序轴、可得性偏置生成、实验失败回流。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-06-06** — v0.2.1：结构图像输入和 NMR 预测/验证。Schema 文件整合。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。

@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.2.5-blue)
+![Status](https://img.shields.io/badge/status-v0.2.6-blue)
 
 Open Codex skill for constraint-driven molecule and polymer design. Integrates the user's Zotero library and local Gemini MCP for dual-stream literature intelligence, adversarial chemistry review, novelty checking, and result-to-claim auditing — alongside RDKit filtering, visual candidate review, and explicit user approval before xTB. Now supports structure image input and Claude-native NMR prediction.
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Current release: v0.2.5** (2026-11-03). New: the ranking now audits itself. Two cheap diagnostics run every round — a **Kendall τ-b axis-redundancy check** (are the five practicality axes really five independent considerations, and did the dominance criterion actually dominate anything?) and a **practicality ablation** that re-ranks on property fit alone to show exactly which high-scoring candidates the practicality constraint kept off the bench. Both are reported whether or not they flatter the loop. See [CHANGELOG.md](CHANGELOG.md).
+> **Current release: v0.2.6** (2026-11-04). New: the v0.2.5 ranking diagnostics are now a deterministic script, `scripts/ranking_diagnostics.py` — practicality dominance, `pareto_rank`, the property-only `shadow_rank_property_only` ablation, the Kendall τ-b redundancy matrix, and the dominated/assessed count, with `unknown` kept non-comparable (never a sentinel) and a `--benchmark-ids` known-compound recovery check. Standard library only; has its own tests. See [CHANGELOG.md](CHANGELOG.md).
 > **Human approval stays mandatory before xTB.** **Zotero MCP and Gemini MCP must be configured** for the new steps — the skill falls back gracefully when they are unavailable.
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
@@ -17,12 +17,14 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release: `v0.2.5` — ranking diagnostics: axis-redundancy check + practicality ablation
+- Current release: `v0.2.6` — ranking diagnostics implemented as a deterministic script (`scripts/ranking_diagnostics.py`)
 - Repo focus: modular Codex skill for Zotero-grounded, adversarially reviewed molecular design
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## Release Track
+
+**v0.2.6** (2026-11-04) — The v0.2.5 ranking diagnostics become a deterministic, tested script (`scripts/ranking_diagnostics.py`): dominance, pareto/shadow ranks, concrete exclusion reasons, the Kendall τ-b matrix, and the dominated/assessed count, stdlib-only, with `--benchmark-ids` recovery of known compounds. Enforces "unknown is non-comparable, never a sentinel" in code.
 
 **v0.2.5** (2026-11-03) — The ranking audits itself. Kendall τ-b redundancy matrix over the five ranking axes (τ-b, not Pearson — the axes are ordinal with heavy ties), mandatory `candidates_dominated / candidates_assessed` reporting so a dominance criterion that dominated nothing cannot pass as a working gate, and a property-only `shadow_rank_property_only` ablation naming every candidate the practicality constraint excluded and why.
 
@@ -56,6 +58,7 @@ Many "LLM for molecule design" workflows fail in predictable ways:
 
 ## What's New
 
+- **2026-11-04** — v0.2.6: the ranking diagnostics become a deterministic, tested script (`scripts/ranking_diagnostics.py`). See [CHANGELOG.md](CHANGELOG.md).
 - **2026-11-03** — v0.2.5: the ranking audits itself — axis-redundancy check, dominated-count reporting, and a practicality ablation that shows what the constraint actually cost. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-08-21** — v0.2.4: un-evidenced design objectives must be declared (claim audit no longer requires xTB to fire), and the loop keeps score of its own hit rate. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-08-10** — v0.2.3: synthesis practicality is a dominance criterion, not a tiebreaker; yield and hazard axes added; route trade-offs recorded instead of collapsed into one cost number. See [CHANGELOG.md](CHANGELOG.md).

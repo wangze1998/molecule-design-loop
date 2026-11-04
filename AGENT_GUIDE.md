@@ -60,6 +60,7 @@ Do not use it when the user wants xTB alone, docking alone, or unconstrained nov
 - `molecule-design-loop/SKILL.md` — main specification
 - `molecule-design-loop/scripts/rdkit_filter_candidates.py` — filter and annotate candidate CSV files
 - `molecule-design-loop/scripts/render_candidate_gallery.py` — render HTML gallery from filtered CSV
+- `molecule-design-loop/scripts/ranking_diagnostics.py` — deterministic Step 11 ranking diagnostics (dominance, pareto/shadow ranks, τ-b redundancy matrix); stdlib only
 - `molecule-design-loop/references/candidate_schema.md` — candidate CSV contract + generation rules
 - `molecule-design-loop/references/design-loop-state-schema.md` — `DESIGN_LOOP_STATE.json` cross-round memory contract
 - `molecule-design-loop/templates/design_spec_template.md` — design brief template
@@ -156,6 +157,7 @@ Useful checks in this repo:
 ```bash
 python3 molecule-design-loop/scripts/test_rdkit_filter_candidates.py
 python3 molecule-design-loop/scripts/test_render_candidate_gallery.py
+python3 molecule-design-loop/scripts/test_ranking_diagnostics.py   # stdlib only, no RDKit needed
 ```
 
 Install locally with:

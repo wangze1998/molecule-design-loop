@@ -26,6 +26,7 @@
 
 上面那次 `2026-06-06` 核对之后仓库里发生的改动，**尚未**与本地源目录对账：
 
+- `v0.2.6` 新增了 `molecule-design-loop/scripts/ranking_diagnostics.py` 和 `test_ranking_diagnostics.py`，并修改了 `SKILL.md`、`AGENT_GUIDE.md`、`ranking-diagnostics-protocol.md`。
 - `v0.2.5` 新增了第 13 个协议文件 `molecule-design-loop/references/ranking-diagnostics-protocol.md`，并修改了 `SKILL.md`、`gemini-scoring-protocol.md`、`candidate_schema.md`、`xtb-integrity-rules.md`。
 - `v0.2.2`–`v0.2.4` 对 `SKILL.md`、`design-loop-state-schema.md`、`synthesis-gate-schema.md`、`claim-audit-protocol.md` 的改动。
 

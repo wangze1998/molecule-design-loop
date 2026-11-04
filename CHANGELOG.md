@@ -4,6 +4,30 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.2.6 — 2026-11-04
+
+Turns the v0.2.5 ranking diagnostics from a prose specification into a deterministic script. v0.2.5 defined the axis-redundancy check and the practicality ablation but left the arithmetic — dominance, ranks, Kendall τ-b, the dominated/assessed count — to be done by hand each round, which is exactly where the integrity rules it added are easiest to break. This release implements that arithmetic in code so the numbers are reproducible and the "unknown is non-comparable, never a sentinel" rule is enforced mechanically. First release in this line to add Python.
+
+### Added
+
+- **`scripts/ranking_diagnostics.py`** (standard library only; no RDKit, no network, no LLM). Input: a decision CSV with `candidate_id`, `gemini_constraint_score`, and the four practicality-axis columns. Output: an annotated CSV (`practicality_dominance`, `pareto_rank`, `shadow_rank_property_only`, `excluded_by_practicality`) plus a Markdown report whose sections match the required `ROUND_N_DECISION.md` sections.
+  - Pareto dominance over {property fit, cost, time, yield, hazard} with ordinal axis encodings; a dominated candidate is ranked after every non-dominated one and can never enter the presented top 3.
+  - `shadow_rank_property_only`: the practicality ablation, ranking on `gemini_constraint_score` alone with ties shared (competition ranking), so what the practicality constraint changed is visible.
+  - `excluded_by_practicality`: the concrete axis values that pushed a candidate out (`cost=very_high, time=months, …`), never a bare "practicality concerns".
+  - Kendall τ-b redundancy matrix with pairwise deletion of unknowns, the 8-candidate floor (`not_assessed`) and 8–15 `small_sample` label, and `candidates_dominated / candidates_assessed` — reported as 0 when the practicality criterion dominated nothing.
+  - `--benchmark-ids`: score known reference compounds (an incumbent, a known-good, a known-bad) through the same pass, so a scorer that ranks a known-good compound low is caught. Reproduces the paper's 2PACz-ranks-85th sanity check.
+- **`scripts/test_ranking_diagnostics.py`** — 11 tests covering dominance, the nothing-dominated case, unknown-is-non-comparable (not zero), the shadow/exclusion pair, the redundancy floor and matrix, the make/buy tiebreak, benchmark ranks, and abort-on-bad-input. Standard library only, so it runs without RDKit.
+
+### Integrity
+
+- The script refuses to guess: an out-of-range score or an unrecognised axis value aborts the run (exit 2) rather than being coerced. A missing value is `unknown`, is written back as `unknown` / `not_assessed`, makes the candidate non-comparable on that axis, and lowers confidence — it is never mapped to `0` or any sentinel, enforcing the rule added to `xtb-integrity-rules.md` in v0.2.5.
+
+### Notes
+
+- `SKILL.md`, `AGENT_GUIDE.md`, and `ranking-diagnostics-protocol.md` updated to point at the script for the mechanical work and keep the prose as its specification. Gemini still assigns `gemini_constraint_score`; the script only ranks on it.
+
+---
+
 ## v0.2.5 — 2026-11-03
 
 Makes the ranking audit itself. v0.2.3 asserted that five practicality axes form a meaningful trade-off and that ranking by them protects bench time; neither claim was ever checked. This release adds the two cheap diagnostics that check them. Prompted by Cai et al., *AI-guided discovery of self-assembled monolayers combining synthetic accessibility and interfacial stability for perovskite solar cells* (Nat. Synth. 2026, DOI 10.1038/s44160-026-01203-4), which verified descriptor non-redundancy before trusting its composite score, and re-ranked with the synthesizability term removed — revealing that the top candidates without it relied on inaccessible precursors and could not be made. Documentation-only; no Python changed.

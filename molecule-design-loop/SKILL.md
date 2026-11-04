@@ -94,6 +94,7 @@ All outputs go in `molecule-design-stage/`:
 Bundled helpers:
 - `scripts/rdkit_filter_candidates.py` — annotates and filters candidate CSV files with RDKit descriptors
 - `scripts/render_candidate_gallery.py` — renders candidate CSV rows into a standalone RDKit HTML gallery
+- `scripts/ranking_diagnostics.py` — deterministic Step 11 diagnostics: practicality dominance, `pareto_rank`, `shadow_rank_property_only`, `excluded_by_practicality`, the Kendall τ-b redundancy matrix, and `candidates_dominated / candidates_assessed` (standard library only; no RDKit, no LLM)
 - `references/candidate_schema.md` — CSV contracts
 - `references/design-loop-state-schema.md` — `DESIGN_LOOP_STATE.json` cross-round memory contract
 - `templates/design_spec_template.md` — starting constraint file template
@@ -345,6 +346,8 @@ A high-performing but 8-step custom synthesis should not outrank a comparable 2-
 
 - **Axis redundancy.** The five ranking axes are asserted to be independent considerations — that has never been checked. Compute Kendall's τ-b over the hard-constraint passers for all axis pairs (ordinal data with heavy ties; Pearson's r is not appropriate). Pairs at |τ-b| ≥ 0.8 carry one piece of information, not two, and the trade-off narrative must stop describing them as separate. Below 8 candidates, record `not_assessed` rather than computing noise. Separately, report `candidates_dominated / candidates_assessed`: with five coarse ordinal axes it is entirely possible that **nothing** is dominated, meaning the practicality gate did not bind at all this round. Say so when it happens.
 - **Practicality ablation.** Also rank the same candidates on property fit alone (`shadow_rank_property_only`), ignoring every practicality axis and the make/buy tiebreak. Report both top-3 sets side by side, and for each candidate the practicality constraint pushed out, name the concrete value that did it. If the two rankings agree, state that practicality did not change the recommendation this round — an identical result is informative, not a failure to hide.
+
+The dominance computation, both ranks, the exclusion reasons, and the τ-b matrix are mechanical — compute them with `scripts/ranking_diagnostics.py` (input: a decision CSV with `candidate_id`, `gemini_constraint_score`, and the four practicality-axis columns) rather than by hand, so the numbers are reproducible and the integrity rules (unknown is non-comparable, never a sentinel) are enforced in code. Gemini still assigns `gemini_constraint_score`; the script only ranks on it. Pass `--benchmark-ids` to score known reference compounds through the same pass.
 
 For the diagnostics' method, thresholds, sample-size floors, and the limits of what each one proves, see [references/ranking-diagnostics-protocol.md](references/ranking-diagnostics-protocol.md).
 

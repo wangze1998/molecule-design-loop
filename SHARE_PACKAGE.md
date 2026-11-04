@@ -26,6 +26,7 @@ Checked on `2026-06-06` (v0.2.1):
 
 Changes made in the repo since the `2026-06-06` check above, which have **not** been reconciled with the local source tree:
 
+- `v0.2.6` added `molecule-design-loop/scripts/ranking_diagnostics.py` and `test_ranking_diagnostics.py`, and edited `SKILL.md`, `AGENT_GUIDE.md`, and `ranking-diagnostics-protocol.md`.
 - `v0.2.5` added a 13th protocol file, `molecule-design-loop/references/ranking-diagnostics-protocol.md`, and edited `SKILL.md`, `gemini-scoring-protocol.md`, `candidate_schema.md`, and `xtb-integrity-rules.md`.
 - `v0.2.2`–`v0.2.4` edits to `SKILL.md`, `design-loop-state-schema.md`, `synthesis-gate-schema.md`, and `claim-audit-protocol.md`.
 

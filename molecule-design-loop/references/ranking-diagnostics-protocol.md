@@ -7,6 +7,8 @@ Two checks that run alongside Pareto ranking and answer questions the ranking it
 
 Both are diagnostics *about* the ranking, not inputs to it. Neither changes a candidate's score. Both are written into `ROUND_N_DECISION.md` and summarized in `DESIGN_REPORT.md`.
 
+**Compute these with `scripts/ranking_diagnostics.py`, not by hand.** Every number below — the dominance relation, `pareto_rank`, `shadow_rank_property_only`, the exclusion reasons, the τ-b matrix, and the dominated/assessed counts — is mechanical and reproducible, and the integrity rules (unknown is non-comparable, a missing value is never a sentinel) are easy to violate when done in prose. The script takes a decision CSV (`candidate_id`, `gemini_constraint_score`, and the four practicality-axis columns), writes an annotated CSV plus a Markdown report whose sections match the ones required below, and takes `--benchmark-ids` for the known-compound recovery check. Gemini still assigns `gemini_constraint_score`; the script only ranks on it. The prose below is the specification the script implements and the reference for reading its output.
+
 Motivated by Cai et al., *AI-guided discovery of self-assembled monolayers combining synthetic accessibility and interfacial stability for perovskite solar cells* (Nat. Synth. 2026, DOI 10.1038/s44160-026-01203-4), which verified descriptor non-redundancy before trusting its composite score, and re-ranked with the synthesizability term removed to show that the top candidates without it were unmakeable.
 
 ---

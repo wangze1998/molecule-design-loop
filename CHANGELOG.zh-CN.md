@@ -4,6 +4,30 @@
 
 ---
 
+## v0.2.6 — 2026-11-04
+
+把 v0.2.5 的排序诊断从文字规范变成确定性脚本。v0.2.5 定义了轴冗余检验和实用性消融，但把算术部分——支配判定、各项排序、Kendall τ-b、被支配/被评估计数——留给每轮人工计算，而这恰恰是它新增的完整性规则最容易被破坏的地方。本次发布把这些算术写进代码，使数字可复现，并让"unknown 不可比、绝不用哨兵值"这条规则由代码强制执行。本线上第一个新增 Python 的版本。
+
+### 新增
+
+- **`scripts/ranking_diagnostics.py`**（仅标准库；不依赖 RDKit、不联网、不调用 LLM）。输入：含 `candidate_id`、`gemini_constraint_score` 和四条实用性轴列的决策 CSV。输出：带标注的 CSV（`practicality_dominance`、`pareto_rank`、`shadow_rank_property_only`、`excluded_by_practicality`）加一份 Markdown 报告，其章节与 `ROUND_N_DECISION.md` 的必填章节对应。
+  - 在 {性质契合, 成本, 时间, 收率, 危害} 上做 Pareto 支配（有序编码）；被支配的候选排在所有非支配者之后，且永远不能进入呈现的前三。
+  - `shadow_rank_property_only`：实用性消融，仅按 `gemini_constraint_score` 排序、并列共享名次（competition ranking），让实用性约束改变了什么一目了然。
+  - `excluded_by_practicality`：把候选挤出去的具体轴值（`cost=very_high, time=months, …`），绝不写"实用性考虑"这种含糊话。
+  - Kendall τ-b 冗余矩阵，对 unknown 做成对删除，8 候选下限（`not_assessed`）、8–15 标 `small_sample`，以及 `candidates_dominated / candidates_assessed`——当实用性判据什么都没支配掉时如实报 0。
+  - `--benchmark-ids`：让已知参照化合物（现役基准、已知好的、已知差的）走完同一条打分流水线，这样当打分器把已知好的化合物排到低位时就能被发现。复现了论文里 2PACz 排第 85 的自检。
+- **`scripts/test_ranking_diagnostics.py`** —— 11 个测试，覆盖支配、无人被支配的情形、unknown 不可比（而非当作 0）、shadow/exclusion 配对、冗余下限与矩阵、make/buy 平手判定、基准排名、以及坏输入中止。仅标准库，无需 RDKit 即可运行。
+
+### 完整性
+
+- 脚本拒绝猜测：越界分数或无法识别的轴值会中止运行（退出码 2），而不是被强行转换。缺失值是 `unknown`，会原样写回 `unknown` / `not_assessed`，使该候选在该轴上不可比并降低置信度——绝不映射为 `0` 或任何哨兵值，兑现 v0.2.5 写进 `xtb-integrity-rules.md` 的规则。
+
+### 说明
+
+- `SKILL.md`、`AGENT_GUIDE.md`、`ranking-diagnostics-protocol.md` 已更新，指向脚本处理机械计算，文字部分作为其规范保留。`gemini_constraint_score` 仍由 Gemini 给出，脚本只据此排序。
+
+---
+
 ## v0.2.5 — 2026-11-03
 
 让排序能够审计自己。v0.2.3 断言五条实用性轴构成一个有意义的权衡、并且按它们排序能节省台架时间——这两条断言从未被检验过。本次发布加入检验它们的两个低成本诊断。灵感来自 Cai 等，*AI-guided discovery of self-assembled monolayers combining synthetic accessibility and interfacial stability for perovskite solar cells*（Nat. Synth. 2026，DOI 10.1038/s44160-026-01203-4）——该文在信任自己的复合评分之前先验证了描述符之间互不冗余，并在去掉可合成性项后重新排序，发现此时的高分候选全都依赖买不到的前体、根本做不出来。纯文档改动，未改动 Python。
