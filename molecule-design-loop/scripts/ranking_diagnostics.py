@@ -6,6 +6,7 @@ judgement:
 
 * practicality dominance over {property fit, cost, time, yield, hazard}
 * pareto_rank (non-dominated front first, dominated candidates after)
+  under one of two explicit modes, see --pareto-rank-mode
 * shadow_rank_property_only (property fit alone, the practicality ablation)
 * excluded_by_practicality (concrete values, never "practicality concerns")
 * a Kendall tau-b redundancy matrix over the five ranking axes
@@ -20,7 +21,11 @@ Integrity rules enforced (references/xtb-integrity-rules.md):
   coerced to a number, and an unrecognised value aborts the run instead of
   being guessed;
 * ``unknown`` is non-comparable: a pair of candidates with any unknown axis
-  has no dominance relation in either direction.
+  has no dominance relation in either direction;
+* a dominated candidate must never hold a ``pareto_rank`` inside the top
+  ``TOP_N``. ``--pareto-rank-mode protocol`` enforces that by leaving those
+  positions empty; the ``positional`` default keeps the pre-v0.4.0 numbering for
+  reproducibility and reports the conflict instead of hiding it.
 
 Standard library only.
 """
@@ -52,6 +57,13 @@ AXIS_LABELS = {
 MAKE_OR_BUY_ORDER = {"buy": 0, "make_on_demand": 1, "custom_synthesis": 2}
 UNKNOWN_TOKENS = {"", "unknown", "not_run", "not_assessed", "n/a", "na"}
 
+PARETO_RANK_MODES = ("positional", "protocol")
+DEFAULT_PARETO_RANK_MODE = "positional"
+
+ROLE_CANDIDATE = "candidate"
+ROLE_CONTROL = "control"
+ROLE_VALUES = {"": ROLE_CANDIDATE, ROLE_CANDIDATE: ROLE_CANDIDATE, ROLE_CONTROL: ROLE_CONTROL}
+
 REDUNDANCY_FLOOR = 8
 SMALL_SAMPLE_CEILING = 15
 REDUNDANT_TAU = 0.8
@@ -70,9 +82,14 @@ class Candidate:
     passes: bool
     values: dict[str, int | None]
     make_or_buy: str
+    role: str = ROLE_CANDIDATE
     dominated_by: list[str] = field(default_factory=list)
     pareto_rank: int | None = None
     shadow_rank: int | None = None
+
+    @property
+    def is_control(self) -> bool:
+        return self.role == ROLE_CONTROL
 
     def axis_text(self) -> str:
         parts = []
@@ -91,6 +108,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--benchmark-ids",
         default="",
         help="Comma-separated candidate_ids of known reference compounds scored through the same pass",
+    )
+    parser.add_argument(
+        "--pareto-rank-mode",
+        choices=PARETO_RANK_MODES,
+        default=DEFAULT_PARETO_RANK_MODE,
+        help=(
+            "positional (default, pre-v0.4.0 behaviour): number every ranked candidate consecutively, "
+            "non-dominated first; a dominated candidate can therefore land on rank 2 or 3, which the "
+            "scoring protocol forbids, so the run warns and the report records the conflict. "
+            "protocol: shift dominated candidates past rank %d so the positions a dominated candidate "
+            "would have taken are left empty and no row inside the top %d is dominated. "
+            "Step 11 runs must pass protocol." % (TOP_N, TOP_N)
+        ),
+    )
+    parser.add_argument(
+        "--role-column",
+        default=None,
+        help=(
+            "Column holding the row's role (candidate/control). Off unless given. When given, rows with "
+            "role=control are reported separately, take no part in dominance against candidates and get "
+            "no rank, so a control cannot occupy the front it is supposed to be measured against."
+        ),
     )
     parser.add_argument(
         "--hard-constraint-column",
@@ -129,18 +168,29 @@ def parse_level(axis: str, raw: str, candidate_id: str) -> int | None:
     return levels[text]
 
 
+def parse_role(raw: str | None, candidate_id: str) -> str:
+    """Role of a row. Unrecognised values abort rather than being guessed."""
+    text = (raw or "").strip().lower()
+    if text not in ROLE_VALUES:
+        allowed = ", ".join(sorted(v for v in ROLE_VALUES if v))
+        raise InputError(f"{candidate_id}: role={raw!r} is not one of: {allowed} (or empty = {ROLE_CANDIDATE})")
+    return ROLE_VALUES[text]
+
+
 def parse_pass(raw: str | None) -> bool:
     if raw is None:
         return True
     return raw.strip().lower() in {"yes", "y", "true", "pass", "1"}
 
 
-def load_candidates(rows: list[dict[str, str]], hard_column: str) -> list[Candidate]:
+def load_candidates(rows: list[dict[str, str]], hard_column: str, role_column: str | None = None) -> list[Candidate]:
     if not rows:
         raise InputError("decision CSV has no rows")
     missing = [col for col in ["candidate_id", *AXES] if col not in rows[0]]
     if missing:
         raise InputError(f"decision CSV is missing required columns: {', '.join(missing)}")
+    if role_column is not None and role_column not in rows[0]:
+        raise InputError(f"--role-column {role_column!r} is not a column of the decision CSV")
 
     candidates: list[Candidate] = []
     seen: set[str] = set()
@@ -158,6 +208,7 @@ def load_candidates(rows: list[dict[str, str]], hard_column: str) -> list[Candid
             values: dict[str, int | None] = {SCORE_COLUMN: parse_score(row.get(SCORE_COLUMN, ""), cid)}
             for axis in AXIS_LEVELS:
                 values[axis] = parse_level(axis, row.get(axis, ""), cid)
+            role = parse_role(row.get(role_column), cid) if role_column is not None else ROLE_CANDIDATE
         except InputError as exc:
             errors.append(str(exc))
             continue
@@ -168,6 +219,7 @@ def load_candidates(rows: list[dict[str, str]], hard_column: str) -> list[Candid
                 passes=parse_pass(row.get(hard_column)),
                 values=values,
                 make_or_buy=(row.get("make_or_buy_status") or "").strip().lower(),
+                role=role,
             )
         )
     if errors:
@@ -211,8 +263,24 @@ def score_key(c: Candidate) -> tuple[int, ...]:
     return (0 if score is not None else 1, -(score or 0))
 
 
-def assign_ranks(candidates: list[Candidate]) -> None:
-    ranked = [c for c in candidates if c.passes]
+def rankable(candidates: list[Candidate]) -> list[Candidate]:
+    """Rows that enter the ranking: hard-constraint passers that are not controls.
+
+    A control is a reference point the candidates are measured against, not an offer
+    to the chemist. With --role-column it is held out of dominance in both directions,
+    so it can neither be dominated by a candidate nor occupy the non-dominated front.
+    """
+    return [c for c in candidates if c.passes and not c.is_control]
+
+
+def controls(candidates: list[Candidate]) -> list[Candidate]:
+    return [c for c in candidates if c.is_control]
+
+
+def assign_ranks(candidates: list[Candidate], mode: str = DEFAULT_PARETO_RANK_MODE) -> None:
+    if mode not in PARETO_RANK_MODES:
+        raise InputError(f"unknown pareto rank mode {mode!r}; expected one of: {', '.join(PARETO_RANK_MODES)}")
+    ranked = rankable(candidates)
     for b in ranked:
         b.dominated_by = sorted(a.candidate_id for a in ranked if a is not b and dominates(a, b))
 
@@ -229,16 +297,47 @@ def assign_ranks(candidates: list[Candidate]) -> None:
             MAKE_OR_BUY_ORDER.get(c.make_or_buy, len(MAKE_OR_BUY_ORDER)),
         )
 
-    for position, cand in enumerate(sorted(ranked, key=lambda c: (pareto_key(c), c.candidate_id)), start=1):
-        cand.pareto_rank = position
+    ordered = sorted(ranked, key=lambda c: (pareto_key(c), c.candidate_id))
+
+    # The dominated/non-dominated flag leads pareto_key, so the non-dominated front
+    # always occupies the first positions of `ordered`.
+    non_dominated = [c for c in ordered if not c.dominated_by]
+    # protocol mode: when the front is shorter than TOP_N, the remaining top positions
+    # are left EMPTY instead of being handed to the best dominated candidate. No row
+    # carries them, and the first dominated candidate starts at TOP_N + 1.
+    offset = max(0, TOP_N - len(non_dominated)) if mode == "protocol" else 0
+
+    for position, cand in enumerate(ordered, start=1):
+        cand.pareto_rank = position + offset if cand.dominated_by else position
 
 
 def in_final_top(c: Candidate) -> bool:
     """A candidate is in the presented top set only if it is non-dominated and
     within the first TOP_N by pareto_rank. A dominated candidate is never in it,
     even when fewer than TOP_N candidates are non-dominated (protocol: a dominated
-    candidate must not enter the top 3)."""
-    return c.passes and not c.dominated_by and c.pareto_rank is not None and c.pareto_rank <= TOP_N
+    candidate must not enter the top 3). A control is never in it either."""
+    return (
+        c.passes
+        and not c.is_control
+        and not c.dominated_by
+        and c.pareto_rank is not None
+        and c.pareto_rank <= TOP_N
+    )
+
+
+def top_rank_conflicts(candidates: list[Candidate]) -> list[Candidate]:
+    """Ranked candidates that are dominated yet hold a pareto_rank inside the top TOP_N.
+
+    The scoring protocol forbids this. It can only happen in `positional` mode, where
+    the ranks are consecutive positions: with fewer than TOP_N non-dominated rows the
+    next dominated rows inherit the free positions, so the CSV field says 2 or 3 while
+    the report's final top set (in_final_top) correctly leaves them out. Reported
+    rather than silently corrected, so an existing round file stays reproducible.
+    """
+    return sorted(
+        (c for c in rankable(candidates) if c.dominated_by and c.pareto_rank is not None and c.pareto_rank <= TOP_N),
+        key=lambda c: c.pareto_rank or 0,
+    )
 
 
 def exclusion_reason(c: Candidate) -> str:
@@ -276,7 +375,7 @@ def kendall_tau_b(xs: list[int], ys: list[int]) -> float | None:
 
 
 def redundancy_matrix(candidates: list[Candidate]) -> dict[tuple[str, str], tuple[float | None, int]]:
-    ranked = [c for c in candidates if c.passes]
+    ranked = rankable(candidates)
     result: dict[tuple[str, str], tuple[float | None, int]] = {}
     for i, a in enumerate(AXES):
         for b in AXES[i + 1:]:
@@ -298,12 +397,42 @@ def verdict(tau: float | None) -> str:
     return "independent"
 
 
-def build_report(candidates: list[Candidate], benchmark_ids: list[str]) -> str:
-    ranked = [c for c in candidates if c.passes]
+def build_report(
+    candidates: list[Candidate],
+    benchmark_ids: list[str],
+    mode: str = DEFAULT_PARETO_RANK_MODE,
+) -> str:
+    ranked = rankable(candidates)
+    control_rows = controls(candidates)
     n = len(ranked)
     lines: list[str] = ["# Ranking Diagnostics", ""]
-    lines.append(f"Hard-constraint passers: {n} of {len(candidates)} candidates.")
+    lines.append(f"Hard-constraint passers: {n} of {len(candidates) - len(control_rows)} candidates.")
+    if control_rows:
+        lines.append(
+            f"Controls held out of the ranking: {len(control_rows)} "
+            f"({', '.join(c.candidate_id for c in control_rows)}). They take no part in dominance."
+        )
+    lines.append(f"pareto_rank mode: `{mode}`.")
     lines.append("")
+
+    # Protocol conflict: dominated candidates holding a top-TOP_N rank.
+    conflicts = top_rank_conflicts(candidates)
+    if conflicts:
+        lines += ["## pareto_rank / protocol Conflict", ""]
+        lines.append(
+            f"**{len(conflicts)} dominated candidate(s) hold a pareto_rank inside the top {TOP_N}**, which the "
+            "scoring protocol forbids: "
+            + "; ".join(f"{c.candidate_id} (rank {c.pareto_rank}, dominated_by:{';'.join(c.dominated_by)})" for c in conflicts)
+        )
+        lines.append("")
+        non_dominated_count = len([c for c in ranked if not c.dominated_by])
+        lines.append(
+            f"Only {non_dominated_count} of {n} ranked candidates are non-dominated, so `positional` numbering "
+            f"hands the free top positions to the best dominated candidates. The final top set below excludes "
+            f"them, so the CSV's pareto_rank field and this report disagree. Re-run with "
+            f"`--pareto-rank-mode protocol` to leave those positions empty."
+        )
+        lines.append("")
 
     # Axis redundancy
     lines += ["## Axis Redundancy", ""]
@@ -380,6 +509,24 @@ def build_report(candidates: list[Candidate], benchmark_ids: list[str]) -> str:
             lines.append(f"- Promoted by practicality: **{c.candidate_id}** (shadow rank {c.shadow_rank}) — {c.axis_text()}")
     lines.append("")
 
+    # Controls
+    if control_rows:
+        lines += ["## Controls (reported separately, not ranked)", ""]
+        lines.append(
+            "A control is the reference the candidates are measured against, so it is held out of dominance in "
+            "both directions and carries no rank. Read its axes next to the front; do not read it as an offer."
+        )
+        lines.append("")
+        lines.append("| control | property_fit | axes | hard constraints |")
+        lines.append("|---|---|---|---|")
+        for c in control_rows:
+            score = c.values[SCORE_COLUMN]
+            lines.append(
+                f"| {c.candidate_id} | {score if score is not None else 'unknown'} | {c.axis_text()} | "
+                f"{'pass' if c.passes else 'fail'} |"
+            )
+        lines.append("")
+
     # Benchmarks
     if benchmark_ids:
         lines += ["## Benchmark Ranks", ""]
@@ -393,9 +540,14 @@ def build_report(candidates: list[Candidate], benchmark_ids: list[str]) -> str:
             if c is None:
                 lines.append(f"| {bid} | missing from input | | |")
                 continue
-            pr = c.pareto_rank if c.pareto_rank is not None else "not_ranked"
-            sr = c.shadow_rank if c.shadow_rank is not None else "not_ranked"
-            dom = f"dominated_by:{';'.join(c.dominated_by)}" if c.dominated_by else ("not_comparable" if not fully_known(c) else "non_dominated")
+            pr = c.pareto_rank if c.pareto_rank is not None else ("control" if c.is_control else "not_ranked")
+            sr = c.shadow_rank if c.shadow_rank is not None else ("control" if c.is_control else "not_ranked")
+            if c.is_control:
+                dom = "control_not_compared"
+            elif c.dominated_by:
+                dom = f"dominated_by:{';'.join(c.dominated_by)}"
+            else:
+                dom = "not_comparable" if not fully_known(c) else "non_dominated"
             lines.append(f"| {bid} | {pr} of {n} | {sr} | {dom} |")
         lines.append("")
 
@@ -420,7 +572,10 @@ def write_output(path: Path, rows: list[dict[str, str]], candidates: list[Candid
         for row in rows:
             c = by_id[row["candidate_id"].strip()]
             out = dict(row)
-            if not c.passes:
+            if c.is_control:
+                out.update({col: "control" for col in extra})
+                out["practicality_dominance"] = "control_not_compared"
+            elif not c.passes:
                 out.update({col: "not_ranked" for col in extra})
                 out["practicality_dominance"] = "not_assessed"
             else:
@@ -445,15 +600,25 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = read_rows(input_path)
     try:
-        candidates = load_candidates(rows, args.hard_constraint_column)
+        candidates = load_candidates(rows, args.hard_constraint_column, args.role_column)
+        assign_ranks(candidates, args.pareto_rank_mode)
     except InputError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    assign_ranks(candidates)
     write_output(output_path, rows, candidates)
-    report_path.write_text(build_report(candidates, benchmark_ids), encoding="utf-8")
+    report_path.write_text(build_report(candidates, benchmark_ids, args.pareto_rank_mode), encoding="utf-8")
     print(f"wrote {output_path} and {report_path}")
+
+    conflicts = top_rank_conflicts(candidates)
+    if conflicts:
+        detail = ", ".join(f"{c.candidate_id} (rank {c.pareto_rank})" for c in conflicts)
+        print(
+            f"warning: --pareto-rank-mode {args.pareto_rank_mode} put {len(conflicts)} dominated candidate(s) "
+            f"inside the top {TOP_N}: {detail}. The scoring protocol forbids this and the report's final top set "
+            f"excludes them, so pareto_rank and the report disagree. Re-run with --pareto-rank-mode protocol.",
+            file=sys.stderr,
+        )
     return 0
 
 

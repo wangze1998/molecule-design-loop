@@ -26,6 +26,10 @@
 
 上面那次 `2026-06-06` 核对之后仓库里发生的改动，**尚未**与本地源目录对账：
 
+- `v0.4.0` 修复了 `molecule-design-loop/scripts/ranking_diagnostics.py` 的 `pareto_rank`
+  （新增 `--pareto-rank-mode protocol`，被支配的候选物不再占据前三的空位），新增
+  `--role-column` 以单独处理对照，删掉了把该缺陷写进断言的测试，并修改了 `SKILL.md`、
+  `gemini-scoring-protocol.md` 和 `ranking-diagnostics-protocol.md`。
 - `v0.3.0` 新增 `build_candidates.py`、`build_gemini_inputs.py`、`inspect_round.py` 和
   `test_skill_contract.py`（各自带测试）、`examples/example_candidates_config.yaml`，以及测试工作流；
   把 `SKILL.md` 重写为路由；修改了 `AGENT_GUIDE.md`、`candidate_schema.md`、

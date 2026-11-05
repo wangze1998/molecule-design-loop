@@ -26,6 +26,11 @@ Checked on `2026-06-06` (v0.2.1):
 
 Changes made in the repo since the `2026-06-06` check above, which have **not** been reconciled with the local source tree:
 
+- `v0.4.0` fixed `pareto_rank` in `molecule-design-loop/scripts/ranking_diagnostics.py`
+  (dominated candidates no longer take a free top-3 position under the new
+  `--pareto-rank-mode protocol`), added `--role-column` for held-out controls, replaced the
+  test assertion that had encoded the bug, and edited `SKILL.md`,
+  `gemini-scoring-protocol.md` and `ranking-diagnostics-protocol.md`.
 - `v0.3.0` added `build_candidates.py`, `build_gemini_inputs.py`, `inspect_round.py` and
   `test_skill_contract.py` (each with tests), `examples/example_candidates_config.yaml`, and a
   tests workflow; rewrote `SKILL.md` as a router; edited `AGENT_GUIDE.md`, `candidate_schema.md`,

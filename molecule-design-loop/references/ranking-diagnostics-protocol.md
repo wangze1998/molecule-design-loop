@@ -9,6 +9,15 @@ Both are diagnostics *about* the ranking, not inputs to it. Neither changes a ca
 
 **Compute these with `scripts/ranking_diagnostics.py`, not by hand.** Every number below — the dominance relation, `pareto_rank`, `shadow_rank_property_only`, the exclusion reasons, the τ-b matrix, and the dominated/assessed counts — is mechanical and reproducible, and the integrity rules (unknown is non-comparable, a missing value is never a sentinel) are easy to violate when done in prose. The script takes a decision CSV (`candidate_id`, `gemini_constraint_score`, and the four practicality-axis columns), writes an annotated CSV plus a Markdown report whose sections match the ones required below, and takes `--benchmark-ids` for the known-compound recovery check. Gemini still assigns `gemini_constraint_score`; the script only ranks on it. The prose below is the specification the script implements and the reference for reading its output.
 
+### Two options that change what the script writes
+
+Both are off by default, so an existing round file recomputes to the same bytes.
+
+- `--pareto-rank-mode {positional,protocol}` — `positional` (default) numbers every ranked candidate consecutively, non-dominated first. When fewer than three candidates are non-dominated, the free top positions fall to the best *dominated* candidates, which the scoring protocol forbids; the run then warns on stderr and the report carries a **pareto_rank / protocol Conflict** section naming the rows. `protocol` shifts every dominated candidate past rank 3, so the positions a dominated candidate would have taken stay empty and no row inside the top 3 is dominated. **Step 11 runs pass `protocol`.** The default exists only to recompute rounds scored before v0.4.0; the shifted ranks are still positions, not Pareto front layers.
+- `--role-column <name>` — rows whose value in that column is `control` are held out of dominance in both directions, get no `pareto_rank` or `shadow_rank_property_only` (both read `control`), are left out of the τ-b matrix and the dominated/assessed counts, and are listed in a **Controls** section with their score and axes. Without the flag a `role` column is just another column and a control is ranked like a candidate. Values other than `candidate`, `control` and empty abort the run rather than being guessed.
+
+Why the role separation exists: in loop-v2 round 1 a cap-only control was the only non-dominated row, so all 20 candidates came back `dominated_by` the thing they were supposed to be compared with, and the front held nothing the chemist could make. Held out, the candidates formed a real two-member front.
+
 Motivated by Cai et al., *AI-guided discovery of self-assembled monolayers combining synthetic accessibility and interfacial stability for perovskite solar cells* (Nat. Synth. 2026, DOI 10.1038/s44160-026-01203-4), which verified descriptor non-redundancy before trusting its composite score, and re-ranked with the synthesizability term removed to show that the top candidates without it were unmakeable.
 
 ---

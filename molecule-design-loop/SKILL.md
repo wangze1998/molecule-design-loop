@@ -3,7 +3,7 @@ name: "molecule-design-loop"
 description: "Constraint-driven design loop for small molecules, polymers and materials. Use when the user asks to design molecules, ligands, inhibitors, hosts, catalysts, dyes, photoswitches, monomers, repeat units or copolymers against a written design spec; for SAR-guided analog series; or for an autonomous design round with literature grounding, RDKit filtering, synthesis-feasibility triage, structural review before calculation, optional xTB evidence, and scored iteration. Mines the user's Zotero library and searches current literature in parallel. Triggers: molecule design loop, design a series, 分子设计, 设计一轮候选物, candidate generation, scaffold optimisation, polymer repeat-unit design."
 license: "MIT"
 metadata:
-  version: "0.3.1"
+  version: "0.4.0"
   requires: "Python 3.9+, RDKit; PyYAML for build_candidates.py"
 ---
 
@@ -170,7 +170,12 @@ shelf-available candidate — and a cheap candidate that is clearly worse on the
 objective does not win by being cheap. When several are non-dominated, present the
 trade-off instead of forcing a winner. `unknown` is non-comparable and lowers
 confidence. The dominance maths, both ranks and the τ-b matrix are mechanical: run
-`ranking_diagnostics.py` rather than computing them by hand.
+`ranking_diagnostics.py` rather than computing them by hand. Run it with
+`--pareto-rank-mode protocol`, which leaves a top-3 position empty rather than giving it
+to a dominated candidate; the default `positional` mode reproduces pre-v0.4.0 round files
+and only warns. If the round carries controls or bare baselines, pass `--role-column`:
+a control is the reference the candidates are measured against, and a control left in the
+pool can be the only non-dominated row, which makes the candidate ranking meaningless.
 
 **12 — Iterate.** Design the next round around the observed failure mode: too
 flexible → rigidify; too planar → add twist; gate failed → simplify the route;

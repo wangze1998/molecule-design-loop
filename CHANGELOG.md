@@ -4,6 +4,49 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.4.0 — 2026-11-05
+
+### Fixed
+
+- `scripts/ranking_diagnostics.py` numbered dominated candidates 2 and 3 whenever
+  fewer than three candidates were non-dominated. `pareto_rank` was a consecutive
+  position with the non-dominated front sorted first, so a short front left the top
+  positions free and the best *dominated* candidates inherited them — while
+  `in_final_top`, and therefore the report's final top set, correctly excluded them.
+  The CSV field and the report in the same run disagreed, and
+  `references/gemini-scoring-protocol.md` forbids a dominated candidate in the top 3
+  outright. Found in loop-v2 round 1, where one candidate was non-dominated and two
+  candidates dominated by it were written as `pareto_rank` 2 and 3.
+  `--pareto-rank-mode protocol` now shifts every dominated candidate past rank 3, so
+  the positions a dominated candidate would have taken are left empty and the first
+  dominated candidate starts at rank 4. The default `positional` mode is unchanged —
+  a round scored before this version recomputes to the same bytes — but it now warns
+  on stderr and writes a **pareto_rank / protocol Conflict** section into the report
+  naming every dominated candidate holding a top-3 rank, instead of leaving the
+  contradiction for a manual field check. Step 11 passes `protocol`; the shifted
+  ranks are positions, not Pareto front layers.
+- `scripts/test_ranking_diagnostics.py` asserted the broken numbering
+  (`worst` at `pareto_rank` 3 in a round with a one-member front), which is why the
+  suite passed. That assertion is gone and the case is covered explicitly in both
+  modes, together with dominated candidates tied on score, order-independence of the
+  tie handling, and the no-op case where the front already fills the top 3.
+
+### Added
+
+- `scripts/ranking_diagnostics.py --role-column <name>`: rows with `role=control` are
+  reported separately and take no part in dominance against candidates. A control —
+  a cap-only reference, a bare baseline, an incumbent scored through the same pass — is
+  what the candidates are measured against, not an offer to the chemist. In loop-v2
+  round 1 the cap-only control was the only non-dominated row, so all 20 candidates came
+  back dominated by the thing they were being compared with and the front held nothing
+  makeable; held out, the candidates formed a real two-member front. Controls get no
+  `pareto_rank` or `shadow_rank_property_only`, are excluded from the τ-b matrix and the
+  dominated/assessed counts, and are listed with their score and axes in a **Controls**
+  section. Off unless the flag is given, so a `role` column alone changes nothing. A role
+  value other than `candidate`, `control` or empty aborts the run instead of being guessed.
+
+---
+
 ## v0.3.1 — 2026-11-04
 
 ### Added

@@ -24,8 +24,8 @@ BASE_FIELDS = [
 ]
 
 
-def row(cid, score, cost, time, yield_, hazard, passes="yes", make="buy"):
-    return {
+def row(cid, score, cost, time, yield_, hazard, passes="yes", make="buy", role=None):
+    out = {
         "candidate_id": cid,
         "gemini_constraint_score": score,
         "pass_hard_constraints": passes,
@@ -35,9 +35,15 @@ def row(cid, score, cost, time, yield_, hazard, passes="yes", make="buy"):
         "hazard_toxicity_flag": hazard,
         "make_or_buy_status": make,
     }
+    if role is not None:
+        out["role"] = role
+    return out
 
 
-class RankingDiagnosticsTest(unittest.TestCase):
+class ToolRunnerMixin:
+    """Runs the script on an in-memory CSV. Shared by the test cases below; not a
+    TestCase itself, so the cases do not re-run each other's tests."""
+
     def run_tool(self, rows, extra_args=None, expect_rc=0):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -64,6 +70,8 @@ class RankingDiagnosticsTest(unittest.TestCase):
                 out_rows = {r["candidate_id"]: r for r in csv.DictReader(fh)}
             return out_rows, report.read_text(encoding="utf-8"), proc.stderr
 
+
+class RankingDiagnosticsTest(ToolRunnerMixin, unittest.TestCase):
     def test_clear_dominance(self):
         # best is no worse on every axis than worst and strictly better -> worst dominated.
         rows = [
@@ -76,8 +84,8 @@ class RankingDiagnosticsTest(unittest.TestCase):
         self.assertIn("best", out["worst"]["practicality_dominance"])
         self.assertEqual(out["best"]["practicality_dominance"], "non_dominated")
         self.assertEqual(out["best"]["pareto_rank"], "1")
-        # worst is dominated, must not be in top 3 ahead of non-dominated ones
-        self.assertEqual(out["worst"]["pareto_rank"], "3")
+        # Only 'best' is non-dominated here; what ranks 2 and 3 hold depends on
+        # --pareto-rank-mode and is pinned in ShortFrontTest below.
 
     def test_nothing_dominated_is_reported(self):
         # each better on one axis, worse on another -> a true trade-off, no dominance.
@@ -177,6 +185,153 @@ class RankingDiagnosticsTest(unittest.TestCase):
         out, _, _ = self.run_tool(rows)
         self.assertEqual(out["buy_one"]["pareto_rank"], "1")
         self.assertEqual(out["custom_one"]["pareto_rank"], "2")
+
+
+class ShortFrontTest(ToolRunnerMixin, unittest.TestCase):
+    """The regression this file previously missed: fewer than TOP_N non-dominated rows.
+
+    `positional` numbering hands the free top positions to the best DOMINATED rows, so
+    pareto_rank said 2/3 while the report's final top set (in_final_top) left them out.
+    Round 1 of loop-v2 hit exactly this: one non-dominated row, two dominated rows at
+    pareto_rank 2 and 3.
+    """
+
+    # one non-dominated row (best), everything else dominated by it
+    ONE_FRONT_ROWS = [
+        row("best", 3, "low", "days", "high", "standard_care"),
+        row("dom_a", 3, "medium", "weeks", "medium", "standard_care", make="make_on_demand"),
+        row("dom_b", 3, "medium", "weeks", "medium", "standard_care", make="custom_synthesis"),
+        row("dom_c", 2, "high", "weeks", "low", "standard_care", make="custom_synthesis"),
+    ]
+
+    def test_one_non_dominated_row_positional_keeps_ranks_and_warns(self):
+        """Default mode is unchanged (old round files stay reproducible) but says so."""
+        out, report, stderr = self.run_tool(self.ONE_FRONT_ROWS)
+        self.assertEqual(out["best"]["pareto_rank"], "1")
+        # the legacy numbering, preserved on purpose
+        self.assertEqual(out["dom_a"]["pareto_rank"], "2")
+        self.assertEqual(out["dom_b"]["pareto_rank"], "3")
+        self.assertTrue(out["dom_a"]["practicality_dominance"].startswith("dominated_by:best"))
+        # ... and the conflict is reported, not left for a field check to catch
+        self.assertIn("--pareto-rank-mode protocol", stderr)
+        self.assertIn("dominated candidate(s) inside the top 3", stderr)
+        self.assertIn("pareto_rank / protocol Conflict", report)
+        self.assertIn("dom_a", report)
+
+    def test_one_non_dominated_row_protocol_leaves_top_positions_empty(self):
+        """Protocol mode: no dominated row inside the top 3, and 2-3 belong to nobody."""
+        out, report, stderr = self.run_tool(self.ONE_FRONT_ROWS, extra_args=["--pareto-rank-mode", "protocol"])
+        self.assertEqual(out["best"]["pareto_rank"], "1")
+        ranks = {cid: r["pareto_rank"] for cid, r in out.items()}
+        self.assertNotIn("2", ranks.values())
+        self.assertNotIn("3", ranks.values())
+        self.assertEqual(ranks["dom_a"], "4")
+        self.assertEqual(ranks["dom_b"], "5")
+        self.assertEqual(ranks["dom_c"], "6")
+        # no dominated row claims a top-3 rank, so nothing to flag
+        self.assertNotIn("pareto_rank / protocol Conflict", report)
+        self.assertEqual(stderr.strip(), "")
+        # the report's final top set and the CSV field now agree: best alone
+        self.assertIn("| 1 | best (shadow 1) | best |", report)
+
+    def test_protocol_mode_is_a_no_op_once_the_front_fills_the_top(self):
+        """Three non-dominated rows: offset is 0, so both modes agree."""
+        rows = [
+            row("cheap_slow", 4, "low", "months", "high", "none"),
+            row("pricey_fast", 4, "very_high", "same_day", "high", "none"),
+            row("mid", 4, "medium", "days", "medium", "none"),
+            row("loser", 2, "very_high", "months", "low", "high_hazard"),
+        ]
+        pos, _, pos_err = self.run_tool(rows)
+        pro, _, _ = self.run_tool(rows, extra_args=["--pareto-rank-mode", "protocol"])
+        self.assertEqual(
+            {k: v["pareto_rank"] for k, v in pos.items()},
+            {k: v["pareto_rank"] for k, v in pro.items()},
+        )
+        self.assertEqual(pro["loser"]["pareto_rank"], "4")
+        self.assertEqual(pos_err.strip(), "")
+
+    def test_dominated_rows_tied_on_score_are_ordered_deterministically(self):
+        """Dominated rows with identical scores must not jitter, and none may enter the top 3."""
+        rows = [
+            row("front", 4, "low", "same_day", "high", "none"),
+            # same score, same axes, differing only in make/buy then id
+            row("tie_c", 3, "medium", "days", "medium", "standard_care", make="custom_synthesis"),
+            row("tie_a", 3, "medium", "days", "medium", "standard_care", make="buy"),
+            row("tie_b", 3, "medium", "days", "medium", "standard_care", make="buy"),
+        ]
+        first, _, _ = self.run_tool(rows, extra_args=["--pareto-rank-mode", "protocol"])
+        again, _, _ = self.run_tool(list(reversed(rows)), extra_args=["--pareto-rank-mode", "protocol"])
+        ranks = {k: v["pareto_rank"] for k, v in first.items()}
+        self.assertEqual(ranks, {k: v["pareto_rank"] for k, v in again.items()})
+        self.assertEqual(ranks["front"], "1")
+        # ties share a shadow rank but get distinct positional ranks, all outside the top 3
+        self.assertEqual(ranks["tie_a"], "4")
+        self.assertEqual(ranks["tie_b"], "5")
+        self.assertEqual(ranks["tie_c"], "6")
+        for cid in ("tie_a", "tie_b", "tie_c"):
+            self.assertEqual(first[cid]["shadow_rank_property_only"], "2")
+            self.assertTrue(first[cid]["practicality_dominance"].startswith("dominated_by:front"))
+
+
+class ControlRoleTest(ToolRunnerMixin, unittest.TestCase):
+    """A control is a reference point, not an offer. Round 1 of loop-v2 had a cap-only
+    control as the ONLY non-dominated row, which made the candidate ranking meaningless."""
+
+    ROWS = [
+        row("control_cap", 3, "low", "days", "high", "standard_care", make="make_on_demand", role="control"),
+        row("cand_a", 3, "medium", "weeks", "medium", "standard_care", make="make_on_demand", role="candidate"),
+        row("cand_b", 3, "medium", "weeks", "medium", "standard_care", make="custom_synthesis", role="candidate"),
+        row("cand_c", 2, "high", "weeks", "low", "standard_care", make="custom_synthesis", role="candidate"),
+    ]
+
+    def test_role_column_is_off_until_asked_for(self):
+        """The column alone changes nothing: without --role-column the control is ranked."""
+        out, report, _ = self.run_tool(self.ROWS)
+        self.assertEqual(out["control_cap"]["pareto_rank"], "1")
+        self.assertTrue(out["cand_a"]["practicality_dominance"].startswith("dominated_by:control_cap"))
+        self.assertNotIn("Controls (reported separately", report)
+
+    def test_control_is_held_out_of_dominance_and_reported_separately(self):
+        out, report, stderr = self.run_tool(
+            self.ROWS, extra_args=["--role-column", "role", "--pareto-rank-mode", "protocol"]
+        )
+        # the control gets no rank and no dominance verdict in either direction
+        self.assertEqual(out["control_cap"]["pareto_rank"], "control")
+        self.assertEqual(out["control_cap"]["shadow_rank_property_only"], "control")
+        self.assertEqual(out["control_cap"]["practicality_dominance"], "control_not_compared")
+        self.assertEqual(out["control_cap"]["excluded_by_practicality"], "control")
+        # with it held out, the candidates have a real two-member front instead of
+        # all being dominated by the thing they are measured against
+        self.assertEqual(out["cand_a"]["practicality_dominance"], "non_dominated")
+        self.assertEqual(out["cand_b"]["practicality_dominance"], "non_dominated")
+        self.assertEqual(out["cand_a"]["pareto_rank"], "1")
+        self.assertEqual(out["cand_b"]["pareto_rank"], "2")
+        self.assertNotIn("control_cap", out["cand_c"]["practicality_dominance"])
+        # reported separately, with its axes, and counted out of the candidate pool
+        self.assertIn("Controls (reported separately, not ranked)", report)
+        self.assertIn("| control_cap | 3 |", report)
+        self.assertIn("Controls held out of the ranking: 1 (control_cap)", report)
+        self.assertIn("Hard-constraint passers: 3 of 3 candidates.", report)
+        self.assertEqual(stderr.strip(), "")
+
+    def test_control_excluded_from_redundancy_and_dominance_counts(self):
+        rows = [row(f"c{i}", (i % 3) + 2, "low", "same_day", "high", "none", role="candidate") for i in range(9)]
+        rows.append(row("ctrl", 5, "low", "same_day", "high", "none", role="control"))
+        _, report, _ = self.run_tool(rows, extra_args=["--role-column", "role"])
+        self.assertIn("Kendall tau-b over 9 hard-constraint passers", report)
+        self.assertIn("Controls held out of the ranking: 1 (ctrl)", report)
+
+    def test_unknown_role_aborts(self):
+        rows = [row("c1", 5, "low", "same_day", "high", "none", role="reference")]
+        _, _, stderr = self.run_tool(rows, extra_args=["--role-column", "role"], expect_rc=2)
+        self.assertIn("role='reference'", stderr)
+        self.assertIn("candidate, control", stderr)
+
+    def test_missing_role_column_aborts(self):
+        rows = [row("c1", 5, "low", "same_day", "high", "none")]
+        _, _, stderr = self.run_tool(rows, extra_args=["--role-column", "role"], expect_rc=2)
+        self.assertIn("is not a column of the decision CSV", stderr)
 
 
 if __name__ == "__main__":

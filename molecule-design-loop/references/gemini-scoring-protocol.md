@@ -70,6 +70,10 @@ Compare only candidates that pass hard constraints. Rank across the design spec'
 2. **Record the verdict** in `practicality_dominance`. A candidate dominated by another must not enter the top 3 of `pareto_rank`, regardless of its score. Say which candidate dominates it.
 3. **Rank within the non-dominated front** by design-spec priority, then apply the make/buy ordering `buy` < `make_on_demand` < `custom_synthesis` (lower = preferred) as the final tiebreak.
 
+**When the front is shorter than three, the top 3 is shorter than three.** A front of one means one offer, not one offer plus the two least-bad dominated candidates. Leave the remaining positions empty and say the front has one member; do not backfill. `ranking_diagnostics.py --pareto-rank-mode protocol` does this (the first dominated candidate starts at rank 4). Do not read those shifted numbers as Pareto front layers — `pareto_rank` is a position, not a front index.
+
+**A control is not a candidate.** A cap-only control, a bare baseline or an incumbent scored through the same pass is the reference the candidates are measured against. Leave it in the dominance pool and it can dominate the whole round or be the only non-dominated row, at which point the ranking says nothing about the candidates. Mark it `role=control`, report it separately with its axes, and keep it out of dominance in both directions (`ranking_diagnostics.py --role-column`). A control also does not become the recommendation by being the only thing left standing.
+
 A high-performing 8-step custom synthesis must not outrank a comparable 2-step shelf-available candidate. Equally, a cheap fast candidate that is clearly worse on the design objective does not win by being cheap — dominance requires being no worse on *every* axis, property fit included.
 
 The front is a set of honest offers, not a single winner: when several candidates are non-dominated, present the trade-off rather than forcing a rank-1 pick.
