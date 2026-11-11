@@ -201,5 +201,37 @@ class TestPublicRepoHygiene(unittest.TestCase):
                     )
 
 
+class TestVersionsAgree(unittest.TestCase):
+    """The README is the repo's front page; a release that bumps SKILL.md but not the
+    README leaves visitors reading an old version number (v0.4.0 shipped that way)."""
+
+    def skill_version(self):
+        match = re.search(r'(?m)^\s*version:\s*"([0-9][^"]*)"', read(SKILL_MD))
+        self.assertIsNotNone(match, "SKILL.md frontmatter needs version: \"x.y.z\"")
+        return match.group(1)
+
+    def test_readmes_and_changelogs_name_the_skill_version(self):
+        version = self.skill_version()
+        checks = {
+            "README.md": [r"badge/status-v([0-9.]+)-", r"\*\*Current release: v([0-9.]+)\*\*",
+                          r"- Current release: `v([0-9.]+)`"],
+            "README.zh-CN.md": [r"badge/status-v([0-9.]+)-", r"\*\*当前版本：v([0-9.]+)\*\*",
+                                r"- 当前发布：`v([0-9.]+)`"],
+            "CHANGELOG.md": [r"(?m)^## v([0-9.]+)"],
+            "CHANGELOG.zh-CN.md": [r"(?m)^## v([0-9.]+)"],
+        }
+        for name, patterns in checks.items():
+            text = read(os.path.join(REPO, name))
+            for pattern in patterns:
+                match = re.search(pattern, text)
+                self.assertIsNotNone(match, f"{name}: no version found for {pattern!r}")
+                self.assertEqual(
+                    match.group(1).rstrip("."),
+                    version,
+                    f"{name} says v{match.group(1)} but SKILL.md is {version}; "
+                    "update it in the same release commit",
+                )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
