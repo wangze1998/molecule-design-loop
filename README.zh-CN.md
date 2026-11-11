@@ -1,14 +1,15 @@
 # Molecule Design Loop
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+![Claude Code Skill](https://img.shields.io/badge/Claude_Code-skill-black)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.3.1-blue)
+![Status](https://img.shields.io/badge/status-v0.4.0-blue)
 
 一个面向 agent 的开源分子与聚合物设计 skill，Claude Code 和 Codex 都能用，强调约束驱动设计。把用户的 Zotero 文献库与主动文献检索结合起来，配合对抗性化学审查、新颖性检查和结果→结论审计，以及 RDKit 过滤、看图确认和 xTB 前的人工审批。结构和审查输入包由带测试的脚本生成，不再由模型手写。
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md) | [分享包说明](SHARE_PACKAGE.zh-CN.md)
 
-> **当前版本：v0.3.0**（2026-11-04）。这是一次 token 经济性发布：SKILL.md 改成路由（457 → 276 行），`scripts/build_candidates.py` 由一个结构推导出全部机械列并在写出前逐条校验，`scripts/build_gemini_inputs.py` 由轮次文件拼出 Step 3.5 / 5.5 / 9.5 的审查输入包，`scripts/inspect_round.py` 提供大文件的有界视图。契约测试负责让 SKILL.md 保持精简、链接有效、本机路径不进仓库。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+> **当前版本：v0.4.0**（2026-11-05）。这是一次排序可信度发布：`scripts/ranking_diagnostics.py --pareto-rank-mode protocol` 保证被支配的候选物不会出现在 `pareto_rank` 前三（Step 11 使用该模式）；默认模式不再静默写出矛盾，而是告警并在报告里点名；新增 `--role-column`，把对照（只封端的参照物、裸基线、已有化合物）排除在支配判定之外，避免它把前沿清空。v0.3.x 已把候选表、审查输入包和文件查看搬进带测试的脚本。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 > **xTB 前的人类审批仍然是强制的。** **Zotero MCP 和 Gemini MCP 需要配置**才能使用新步骤——不可用时工作流优雅降级。
 
 如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。
@@ -17,12 +18,14 @@
 
 ## 当前状态
 
-- 当前发布：`v0.3.1` — token 经济性（路由式 SKILL.md、生成候选表与审查输入包、有界文件查看、仓库契约测试），并修正 Step 9.5 输入包的 xTB 列名
-- 仓库定位：模块化 Codex skill，Zotero 驱动、对抗性审查的分子设计
+- 当前发布：`v0.4.0` — 排序可信度（`pareto_rank` 前三不再出现被支配者，对照不参与支配判定），建立在 v0.3.x 的 token 经济性改造之上
+- 仓库定位：Claude Code 与 Codex 通用的模块化 skill，Zotero 驱动、对抗性审查的分子设计
 - 更新记录：[CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - 分享包范围说明：[SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## 版本轨迹
+
+**v0.4.0**（2026-11-05）— 修复：非支配候选物少于三个时，`pareto_rank` 把第 2、3 名给了被支配者，而报告的 final top 正确地排除了它们，CSV 与报告互相矛盾，也违反了打分协议「被支配者不得进前三」；原测试断言的正是错误编号。`--pareto-rank-mode protocol` 把被支配者顺延到第 3 名之后，Step 11 使用该模式；默认模式保持旧轮次可复现，但会告警并点名冲突。新增 `--role-column`，`role=control` 的行单独汇报，参照化合物不会再支配所有候选物。
 
 **v0.3.1**（2026-11-04）— 修复：Step 9.5 输入包脚本读 xTB 结果文件用的列名不是 `candidate_schema.md` 规定的那套，按 schema 写的轮次文件因此产出一个没有数字的证据段；而测试数据用的是脚本自己的列名，所以测试一直没抓到。现在以 schema 列名为准，旧列名作为别名接受，缺失的必需列会被点名而不是静默丢掉。
 
