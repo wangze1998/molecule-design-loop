@@ -71,6 +71,14 @@ expensive. Four rules, stated in full in SKILL.md:
 4. **Hand off between stages.** Write `DESIGN_LOOP_STATE.json` and continue in a
    fresh session after Step 2, at the Step 7 approval, and between rounds.
 
+One integrity rule belongs here too, because it is about what you may touch:
+
+5. **Do not edit the skill during a run.** `SKILL.md`, `scripts/`, `references/` and
+   `templates/` are read-only mid-round. If a rule looks wrong, write
+   `ROUND_N_CHANGE_REQUEST.md` from `templates/change_request_template.md` and stop.
+   `scripts/provenance.py` snapshots the skill at Step 3 and verifies it before Steps
+   7, 11 and 12; a failed verify stops the round.
+
 ## Core Files
 
 - `molecule-design-loop/SKILL.md` — main specification
@@ -80,10 +88,12 @@ expensive. Four rules, stated in full in SKILL.md:
 - `molecule-design-loop/scripts/rdkit_filter_candidates.py` — filter and annotate candidate CSV files
 - `molecule-design-loop/scripts/render_candidate_gallery.py` — render HTML gallery from filtered CSV
 - `molecule-design-loop/scripts/ranking_diagnostics.py` — deterministic Step 11 ranking diagnostics (dominance, pareto/shadow ranks, τ-b redundancy matrix); stdlib only
+- `molecule-design-loop/scripts/provenance.py` — snapshot / verify / diff of the skill files, spec and environment a round ran on; stdlib only
 - `molecule-design-loop/references/candidate_schema.md` — candidate CSV contract + generation rules
 - `molecule-design-loop/references/design-loop-state-schema.md` — `DESIGN_LOOP_STATE.json` cross-round memory contract
 - `molecule-design-loop/templates/design_spec_template.md` — design brief template
 - `molecule-design-loop/templates/xtb_approval_template.md` — mandatory approval checkpoint template
+- `molecule-design-loop/templates/change_request_template.md` — what a run writes instead of editing a rule
 
 Reference protocols in `molecule-design-loop/references/`:
 
@@ -100,9 +110,10 @@ Reference protocols in `molecule-design-loop/references/`:
 | `claim-audit-protocol.md` | 9.5 — evidence-to-claim matrix |
 | `gemini-scoring-protocol.md` | 11 — scoring rubric, Pareto ranking |
 | `ranking-diagnostics-protocol.md` | 11 — axis-redundancy check + practicality ablation |
-| `design-loop-state-schema.md` | 1/3/4/12/13 — `DESIGN_LOOP_STATE.json` cross-round memory + `loop_calibration` |
+| `design-loop-state-schema.md` | 1/3/4/12/13 — `DESIGN_LOOP_STATE.json` cross-round memory, `loop_calibration`, `provenance`, `change_requests` |
 | `polymer-design-mode.md` | polymer/material branch |
 | `xtb-integrity-rules.md` | xTB recording requirements |
+| `run-integrity-protocol.md` | 3/7/11/12 — read-only skill, change requests, provenance snapshot and verify |
 
 ## Output Contract
 
@@ -128,6 +139,8 @@ Prefer a project-local `molecule-design-stage/` directory with:
 - `ROUND_N_EXPERIMENT_RESULTS.csv` (when feedback available)
 - `ROUND_N_GEMINI_INPUT.md`
 - `ROUND_N_DECISION.md`
+- `ROUND_N_PROVENANCE.json` (snapshot of the skill files, spec and environment the round ran on)
+- `ROUND_N_CHANGE_REQUEST.md` (only when a run asked to change a rule)
 - `DESIGN_LOOP_STATE.json` (cross-round memory; schema in `references/design-loop-state-schema.md`)
 - `DESIGN_REPORT.md`
 - `xtb_jobs/`
@@ -138,24 +151,25 @@ Prefer a project-local `molecule-design-stage/` directory with:
 2. Lock the design brief into `DESIGN_SPEC_LOCKED.md`.
 3. Run Zotero extraction (1.5-A) and active search (1.5-B) in parallel.
 4. Merge into `LIT_PACKET.md`; flag contradictions.
-5. Generate interpretable SMILES candidates with `build_candidates.py`, tied to specific constraints. Before generating, read `DESIGN_LOOP_STATE.json` and exclude any candidate matching a `killed_motifs[]` SMARTS/scaffold (Step 3, Fix A); bias a portion toward `available_building_blocks[]` (Fix C).
+5. Snapshot the skill with `provenance.py snapshot` and pin the printed hash in `DESIGN_LOOP_STATE.json` `provenance[]`. Then generate interpretable SMILES candidates with `build_candidates.py`, tied to specific constraints. Before generating, read `DESIGN_LOOP_STATE.json` and exclude any candidate matching a `killed_motifs[]` SMARTS/scaffold (Step 3, Fix A); bias a portion toward `available_building_blocks[]` (Fix C).
 6. Run Gemini adversarial review (Step 3.5): build the packet with `build_gemini_inputs.py --steps 3.5` and pass its path.
 7. Run deterministic RDKit filtering with `--forbidden-smarts` = spec `forbidden_motifs` ∪ `DESIGN_LOOP_STATE.json` `killed_motifs[].smarts`; keep rejection reasons.
 8. Run synthesis-feasibility gate (Step 5), emitting sortable `synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, and `hazard_toxicity_flag`; record `route_alternatives` when more than one route is supported by evidence.
 9. Run novelty check (Step 5.5).
 10. Render `ROUND_N_CANDIDATE_GALLERY.html`.
-11. Pause for explicit user approval before any xTB run.
+11. Run `provenance.py verify` and show the result, then pause for explicit user approval before any xTB run.
 12. Run xTB only on approved candidates.
 13. Run result-to-claim audit (Step 9.5) — mandatory when xTB ran, OR when a design objective is one the loop cannot evidence (affinity/potency/selectivity/catalysis/self-assembly/permeability/in vivo), even if xTB did not run.
 14. Run NMR prediction/verification if requested (Step 9.7).
 15. Ingest experimental feedback if available.
-16. Score with Gemini + Pareto ranking; synthesis practicality is a **dominance** criterion, not a tiebreaker — a candidate dominated on {property fit, cost, time, yield, hazard} is recorded in `practicality_dominance` and kept out of the top 3. Run both ranking diagnostics in the same step (Fix E): the Kendall τ-b axis-redundancy matrix plus `candidates_dominated / candidates_assessed`, and the property-only `shadow_rank_property_only` ablation. Report both in `ROUND_N_DECISION.md` whatever they show.
-17. Either iterate or write the final report. Once experimental feedback exists, update `loop_calibration` in `DESIGN_LOOP_STATE.json` (promoted vs. attempted vs. worked) and report it in `DESIGN_REPORT.md`, unflattering results included. On iterate, write experimental `failure_mode` and adversarial `likely_lab_failure_mode` back into `DESIGN_LOOP_STATE.json` as structured `killed_motifs[]`/`failed_reactions[]` (Fix D).
+16. Run `provenance.py verify` (stop on drift), then score with Gemini + Pareto ranking; synthesis practicality is a **dominance** criterion, not a tiebreaker — a candidate dominated on {property fit, cost, time, yield, hazard} is recorded in `practicality_dominance` and kept out of the top 3. Run both ranking diagnostics in the same step (Fix E): the Kendall τ-b axis-redundancy matrix plus `candidates_dominated / candidates_assessed`, and the property-only `shadow_rank_property_only` ablation. Report both in `ROUND_N_DECISION.md` whatever they show.
+17. Run `provenance.py verify` before writing anything back. Either iterate or write the final report, including the *Run integrity* section (versions, verify results, change requests). Once experimental feedback exists, update `loop_calibration` in `DESIGN_LOOP_STATE.json` (promoted vs. attempted vs. worked) and report it in `DESIGN_REPORT.md`, unflattering results included. On iterate, write experimental `failure_mode` and adversarial `likely_lab_failure_mode` back into `DESIGN_LOOP_STATE.json` as structured `killed_motifs[]`/`failed_reactions[]` (Fix D).
 
 ## Hard Guardrails
 
 - Do not treat xTB as proof of binding, selectivity, mechanism, or synthesis feasibility.
 - Do not continue into xTB without explicit user approval.
+- Do not edit `SKILL.md`, `scripts/`, `references/` or `templates/` during a run. Write a change request and stop; a failed `provenance.py verify` stops the round.
 - Do not collapse all candidates into near-duplicate variants.
 - Do not discard rejected candidates silently; keep the rejection reason for later refinement.
 - If a hard constraint is ambiguous, stop and ask a targeted question before expensive calculations.

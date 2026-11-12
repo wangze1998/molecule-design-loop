@@ -12,7 +12,7 @@ It is **not** a free-form scratchpad. The fields below are a contract: Step 3 (c
 
 ## Top-level keys
 
-- `schema_version`: string, currently `"1.0"`.
+- `schema_version`: string, currently `"1.1"`. `1.1` adds `provenance` and `change_requests`; a `1.0` file without them is still valid and gains them at its next round.
 - `design_mode`: `"small_molecule"` or `"polymer"`.
 - `current_round`: integer, the round just completed.
 - `max_rounds`: integer (matches `MAX_ROUNDS`).
@@ -25,7 +25,9 @@ It is **not** a free-form scratchpad. The fields below are a contract: Step 3 (c
 - `hypotheses_to_revisit`: array of strings — ideas parked for a later round.
 - `experimental_endpoints`: array — measured endpoints carried from `ROUND_N_EXPERIMENT_RESULTS.csv`.
 - `loop_calibration`: object — the loop's own track record: what it promoted vs. what actually worked (see below).
-- `notes`: optional free-text string for retractions or cross-round caveats.
+- `provenance`: array — which skill version, spec and environment each round ran on, and every verify (see below).
+- `change_requests`: array — requests to change the skill raised during runs, and how each was decided (see below).
+- `notes`: optional free-text string for retractions, approved spec changes, or cross-round caveats.
 
 ### `killed_motifs[]` (each object)
 
@@ -91,20 +93,52 @@ This exists to answer one question the loop otherwise cannot answer: **of the st
 - A hit rate computed from fewer than 5 attempted candidates must be labelled small-sample in `calibration_summary` and must not be presented as a performance figure.
 - A repeated `optimistic` pattern in `prediction_vs_outcome[]` should be written into `known_bias` and referenced by the next round's scoring (Step 11) as a reason to lower `confidence`.
 
+### `provenance[]` (each object)
+
+Written by Step 3 and appended to at every verify. Procedure in [run-integrity-protocol.md](run-integrity-protocol.md).
+
+- `round`: integer.
+- `snapshot_file`: e.g. `"ROUND_2_PROVENANCE.json"`.
+- `snapshot_sha256`: the hash `provenance.py snapshot` printed. Every verify passes it as `--expect-sha256`.
+- `skill_version`: from the snapshot.
+- `git_commit`: from the snapshot, or `null` for an installed copy.
+- `write_protected`: boolean, from the snapshot.
+- `verifications[]`: one per check — `step` (`7`, `11`, `12`), `result` (`ok`, `skill_drift`, `spec_drift`, `bad_snapshot`), `detail` (the files named, or `""`).
+- `resnapshots[]`: when an accepted change request or an approved spec change required a new snapshot mid-round — `snapshot_file`, `snapshot_sha256`, `reason`, `request_id` (or `null` for a spec change).
+
+### `change_requests[]` (each object)
+
+- `request_id`: stable id, e.g. `"cr_r2_01"`.
+- `round`, `step`: where it was raised.
+- `file`: `"ROUND_2_CHANGE_REQUEST.md"`.
+- `target`: the skill file (and function or threshold) it asks to change.
+- `touches_invariant`: the integrity or protocol rule involved, or `"none"`.
+- `would_promote`: array of candidate ids that would move into the top 3, pass a filter, or gain a stronger evidence label if the change were made. `[]` when none.
+- `status`: `open`, `accepted` or `rejected`.
+- `decision_note`: the user's reason.
+- `resolved_in_version`: skill version that implements an accepted request, else `null`.
+
+**Rules**
+
+- Never delete a request, including rejected ones. The count of requests, and how many had a non-empty `would_promote`, is part of the loop's track record and goes into the report.
+- An `open` request blocks the step it was raised at until the user decides.
+
 ## How the loop consumes this file
 
 - **Step 1** writes `available_building_blocks[]` from the locked design spec's known-materials / preferred-vendor fields.
-- **Step 3** reads `killed_motifs[]` and excludes any candidate matching a killed `smarts` or `murcko_scaffold`, unless the candidate carries an explicit documented rescue hypothesis in its `rationale`. It also biases a portion of the round toward `available_building_blocks[]` (tagged `building_block_source`).
+- **Step 3** opens `provenance[]` for the round with a snapshot (see [run-integrity-protocol.md](run-integrity-protocol.md)), then reads `killed_motifs[]` and excludes any candidate matching a killed `smarts` or `murcko_scaffold`, unless the candidate carries an explicit documented rescue hypothesis in its `rationale`. It also biases a portion of the round toward `available_building_blocks[]` (tagged `building_block_source`).
 - **Step 4** assembles `--forbidden-smarts` as the union of the design spec's `forbidden_motifs` and every `killed_motifs[].smarts`.
 - **Step 11** may read `successful_moves[]` and `evidence_gaps[]` to inform ranking and revision hints.
 - **Step 12** writes new `killed_motifs[]` / `failed_reactions[]` entries from experimental `failure_mode` and adversarial `likely_lab_failure_mode`, so the next round excludes them automatically. It also updates `loop_calibration` by comparing what the previous round promoted against what the experiments returned.
-- **Step 13** reports `loop_calibration` in `DESIGN_REPORT.md`, unflattering results included.
+- **Steps 7, 11, 12** append a verification to the round's `provenance[]` entry and stop on anything but `ok` (or a `spec_drift` the user approved).
+- **Any step** may append to `change_requests[]`; an `open` request stops the run at that step.
+- **Step 13** reports `loop_calibration` in `DESIGN_REPORT.md`, unflattering results included, and reports `provenance[]` and `change_requests[]` under *Run integrity*.
 
 ## Minimal valid example
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "design_mode": "small_molecule",
   "current_round": 1,
   "max_rounds": 3,
@@ -188,6 +222,36 @@ This exists to answer one question the loop otherwise cannot answer: **of the st
     "known_bias": [],
     "calibration_summary": "Round 1: 3 of 5 promoted candidates were attempted, 1 met the endpoint. Small sample — not yet a performance figure."
   },
+  "provenance": [
+    {
+      "round": 1,
+      "snapshot_file": "ROUND_1_PROVENANCE.json",
+      "snapshot_sha256": "e70f5b25c3cc91bafec02808d4f5d3a5d51f14220c44bf4f37c0734d7889828f",
+      "skill_version": "0.5.0",
+      "git_commit": null,
+      "write_protected": true,
+      "verifications": [
+        {"step": 7, "result": "ok", "detail": ""},
+        {"step": 11, "result": "ok", "detail": ""},
+        {"step": 12, "result": "ok", "detail": ""}
+      ],
+      "resnapshots": []
+    }
+  ],
+  "change_requests": [
+    {
+      "request_id": "cr_r1_01",
+      "round": 1,
+      "step": 4,
+      "file": "ROUND_1_CHANGE_REQUEST.md",
+      "target": "rdkit_filter_candidates.py --max-tpsa default",
+      "touches_invariant": "none",
+      "would_promote": ["cand_09"],
+      "status": "rejected",
+      "decision_note": "TPSA limit comes from the spec; raise it there if needed, not in the script",
+      "resolved_in_version": null
+    }
+  ],
   "notes": ""
 }
 ```

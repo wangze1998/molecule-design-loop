@@ -4,6 +4,48 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## v0.5.0 — 2026-11-12
+
+### Added
+
+- **The skill is read-only during a run** (SKILL.md integrity rule 9). An agent running
+  a round had write access to the skill's own files: a filter threshold, the dominance
+  code in `ranking_diagnostics.py`, or a protocol rule could be loosened part-way
+  through a round, and the test suite only noticed when someone ran it. Self-driving
+  labs answer the same risk by separation — the agent that runs experiments cannot touch
+  the code it runs on, and a human approves every change. The loop now does the same:
+  a rule that looks wrong becomes `ROUND_N_CHANGE_REQUEST.md`, the run stops, and the
+  user decides. The spec stays the user's to change, with the approval on record.
+- `templates/change_request_template.md`. Its *Effect on this round* section must say
+  which candidates the change would move into the top 3, through a filter, or to a
+  stronger evidence label — a request whose main effect is to rescue one of this round's
+  candidates is a spec question, not a skill fix.
+- `scripts/provenance.py` (stdlib only), with `test_provenance.py`. `snapshot` hashes
+  every skill file (tests and caches excluded), the locked spec and the environment,
+  records model names given as `--note`, and prints the snapshot's own SHA-256.
+  `verify` names every modified, added or removed file (exit 1), refuses a snapshot that
+  is not the pinned one (exit 2), and separates a spec change (exit 3) from a skill
+  change. `diff` compares two rounds. The git commit is read from `.git` when the skill
+  runs from a clone; the file hashes are the record either way.
+- Workflow: snapshot before Step 3; verify before Steps 7, 11 and 12. A failed verify
+  stops the round.
+- `references/run-integrity-protocol.md`: what is frozen and what is the user's, the
+  change-request route, the verify schedule and exit-code handling, and the limits —
+  verify detects edits, it does not prevent them.
+- `DESIGN_LOOP_STATE.json` schema 1.1: `provenance[]` (snapshot, pinned hash, version,
+  every verification, re-snapshots) and `change_requests[]` (including `would_promote`).
+  A 1.0 file stays valid. `DESIGN_REPORT.md` gains a fourth never-softened section,
+  *Run integrity*.
+- `install_molecule_design_loop.sh --read-only` removes write permission from the
+  installed skill, adding prevention on top of detection. Unknown options are now an
+  error instead of being ignored, and `--help` lists the options.
+- `test_skill_contract.py` guards the guard: it fails if the Step 3 snapshot or any of
+  the Step 7 / 11 / 12 verifies leaves the workflow table, if the change-request
+  template loses a section, if the state schema stops documenting either record, or if
+  a read-only install leaves a writable file.
+
+---
+
 ## v0.4.0 — 2026-11-05
 
 ### Fixed
