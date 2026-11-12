@@ -3,7 +3,7 @@ name: "molecule-design-loop"
 description: "Constraint-driven design loop for small molecules, polymers and materials. Use when the user asks to design molecules, ligands, inhibitors, hosts, catalysts, dyes, photoswitches, monomers, repeat units or copolymers against a written design spec; for SAR-guided analog series; or for an autonomous design round with literature grounding, RDKit filtering, synthesis-feasibility triage, structural review before calculation, optional xTB evidence, and scored iteration. Mines the user's Zotero library and searches current literature in parallel. Triggers: molecule design loop, design a series, 分子设计, 设计一轮候选物, candidate generation, scaffold optimisation, polymer repeat-unit design."
 license: "MIT"
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   requires: "Python 3.9+, RDKit; PyYAML for build_candidates.py"
 ---
 
@@ -94,7 +94,8 @@ available and take back only the file paths.
 | STOP_IF_NO_NEW_FEASIBLE_MOTIF | true |
 
 Mandatory every round, never skippable: adversarial review (3.5), novelty check
-(5.5), user approval (7), ranking diagnostics (11). The claim audit (9.5) is
+(5.5), user approval (7), ranking diagnostics (11), and the provenance snapshot and
+verifies (3, 7, 11, 12). The claim audit (9.5) is
 mandatory whenever xTB ran **or** an objective is one this loop cannot evidence.
 
 ## Workflow
@@ -109,19 +110,19 @@ output by hand. `--help` on any script lists its flags.
 | 1.5-A | Mine Zotero → knowledge packet, seed SMILES | [zotero-extraction-protocol.md](references/zotero-extraction-protocol.md) | — |
 | 1.5-B | Search current + landmark work (parallel) | [active-search-protocol.md](references/active-search-protocol.md) | — |
 | 2 | Merge both → `LIT_PACKET.md`, flag conflicts | — | — |
-| 3 | Generate 20–50 candidates | [candidate_schema.md](references/candidate_schema.md) | `build_candidates.py` |
+| 3 | Snapshot the skill; generate 20–50 candidates | [run-integrity-protocol.md](references/run-integrity-protocol.md), [candidate_schema.md](references/candidate_schema.md) | `provenance.py snapshot`, `build_candidates.py` |
 | 3.5 | Gemini adversarial review | [adversarial-review-protocol.md](references/adversarial-review-protocol.md) | `build_gemini_inputs.py --steps 3.5` |
 | 4 | Deterministic filtering | — | `rdkit_filter_candidates.py` |
 | 5 | Synthesis-feasibility gate | [synthesis-gate-schema.md](references/synthesis-gate-schema.md) | — |
 | 5.5 | Prior-art / novelty check | [novelty-check-protocol.md](references/novelty-check-protocol.md) | `build_gemini_inputs.py --steps 5.5` |
 | 6 | Render the HTML gallery | [polymer-design-mode.md](references/polymer-design-mode.md) for polymers | `render_candidate_gallery.py` |
-| 7 | **Stop. Get structural approval.** | [templates/xtb_approval_template.md](templates/xtb_approval_template.md) | — |
+| 7 | **Stop. Get structural approval.** | [templates/xtb_approval_template.md](templates/xtb_approval_template.md) | `provenance.py verify` |
 | 8–9 | Select and run xTB jobs | [xtb-integrity-rules.md](references/xtb-integrity-rules.md) | — |
 | 9.5 | Result-to-claim audit | [claim-audit-protocol.md](references/claim-audit-protocol.md) | `build_gemini_inputs.py --steps 9.5` |
 | 9.7 | NMR prediction / verification (optional) | [nmr-prediction-protocol.md](references/nmr-prediction-protocol.md) | — |
 | 10 | Ingest experimental feedback | [candidate_schema.md](references/candidate_schema.md) | — |
-| 11 | Score, rank, run both diagnostics | [gemini-scoring-protocol.md](references/gemini-scoring-protocol.md), [ranking-diagnostics-protocol.md](references/ranking-diagnostics-protocol.md) | `ranking_diagnostics.py` |
-| 12 | Write failures back to state; iterate | [design-loop-state-schema.md](references/design-loop-state-schema.md) | — |
+| 11 | Score, rank, run both diagnostics | [gemini-scoring-protocol.md](references/gemini-scoring-protocol.md), [ranking-diagnostics-protocol.md](references/ranking-diagnostics-protocol.md) | `provenance.py verify`, `ranking_diagnostics.py` |
+| 12 | Write failures back to state; iterate | [design-loop-state-schema.md](references/design-loop-state-schema.md) | `provenance.py verify` |
 | 13 | Stop and report | — | — |
 
 ### Step notes
@@ -188,11 +189,12 @@ with a SMARTS whenever a structural pattern is implicated. Update
 
 **13 — Report.** Stop when 3–5 candidates clear the constraints with evidence, or no
 new feasible motif appears for a full round, or xTB is unavailable, or `MAX_ROUNDS`
-is reached. `DESIGN_REPORT.md` must contain three sections that are never softened:
+is reached. `DESIGN_REPORT.md` must contain four sections that are never softened:
 *un-evidenced objectives* (with the substitute used and the measurement that would
 settle it), *ranking diagnostics* (redundancy verdict, how many candidates the
 practicality criterion actually dominated, and the ablation result), and *loop
-calibration* (promoted vs. attempted vs. worked, including when it is unflattering).
+calibration* (promoted vs. attempted vs. worked, including when it is unflattering),
+and *run integrity* (skill version per round, verify results, change requests).
 
 ## Integrity rules
 
@@ -220,6 +222,11 @@ These exist because each one has produced a wrong conclusion before.
    a validated method. Always mark them "Claude-predicted" with the error range. A
    `mismatch` triggers structural review — regioisomer, tautomer or side product.
 8. **Low-confidence image extractions need confirmation** before anything downstream.
+9. **The skill is read-only during a run.** Never edit `SKILL.md`, `scripts/`,
+   `references/` or `templates/` mid-round, however wrong a rule looks: write
+   `ROUND_N_CHANGE_REQUEST.md` from `templates/change_request_template.md` and stop.
+   A failed `provenance.py verify` stops the round. The spec is the user's to change,
+   with approval on record.
 
 ## Outputs
 
@@ -232,7 +239,8 @@ Everything lands in `molecule-design-stage/`:
 `ROUND_N_NOVELTY_CHECK.md` · `ROUND_N_CANDIDATE_GALLERY.html` ·
 `ROUND_N_POLYMER_DESIGN.html` · `ROUND_N_XTB_APPROVAL.md` · `ROUND_N_XTB_RESULTS.csv` ·
 `ROUND_N_CLAIM_AUDIT.md` · `ROUND_N_NMR_PREDICTIONS.csv` · `ROUND_N_NMR_VERIFICATION.md` ·
-`ROUND_N_EXPERIMENT_RESULTS.csv` · `ROUND_N_DECISION.md` · `DESIGN_LOOP_STATE.json` ·
+`ROUND_N_EXPERIMENT_RESULTS.csv` · `ROUND_N_DECISION.md` · `ROUND_N_PROVENANCE.json` ·
+`ROUND_N_CHANGE_REQUEST.md` · `DESIGN_LOOP_STATE.json` ·
 `DESIGN_REPORT.md` · `xtb_jobs/`
 
 `DESIGN_LOOP_STATE.json` is the cross-round memory and the handoff file. Update it in
@@ -248,6 +256,7 @@ place; never overwrite earlier rounds.
 | `build_gemini_inputs.py` | round files → Steps 3.5 / 5.5 / 9.5 review packets |
 | `ranking_diagnostics.py` | dominance, Pareto and shadow ranks, τ-b matrix (stdlib only) |
 | `inspect_round.py` | bounded views of any round file (stdlib only) |
+| `provenance.py` | snapshot / verify / diff the skill files, spec and environment a round ran on (stdlib only) |
 
 When a new helper is needed: one entrypoint, reusable parts, per-run config. Never
 hard-code a round number, molecule, path or threshold; read evolving constraints from

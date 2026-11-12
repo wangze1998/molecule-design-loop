@@ -26,6 +26,10 @@
 
 上面那次 `2026-06-06` 核对之后仓库里发生的改动，**尚未**与本地源目录对账：
 
+- `v0.5.0` 新增 `molecule-design-loop/scripts/provenance.py` 和 `test_provenance.py`、
+  `references/run-integrity-protocol.md` 和 `templates/change_request_template.md`；给安装脚本
+  加了 `--read-only`；修改了 `SKILL.md`、`AGENT_GUIDE.md`、`design-loop-state-schema.md` 和
+  `test_skill_contract.py`。
 - `v0.4.0` 修复了 `molecule-design-loop/scripts/ranking_diagnostics.py` 的 `pareto_rank`
   （新增 `--pareto-rank-mode protocol`，被支配的候选物不再占据前三的空位），新增
   `--role-column` 以单独处理对照，删掉了把该缺陷写进断言的测试，并修改了 `SKILL.md`、

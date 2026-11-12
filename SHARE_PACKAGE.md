@@ -26,6 +26,10 @@ Checked on `2026-06-06` (v0.2.1):
 
 Changes made in the repo since the `2026-06-06` check above, which have **not** been reconciled with the local source tree:
 
+- `v0.5.0` added `molecule-design-loop/scripts/provenance.py` and `test_provenance.py`,
+  `references/run-integrity-protocol.md` and `templates/change_request_template.md`; added
+  `--read-only` to the installer; edited `SKILL.md`, `AGENT_GUIDE.md`,
+  `design-loop-state-schema.md` and `test_skill_contract.py`.
 - `v0.4.0` fixed `pareto_rank` in `molecule-design-loop/scripts/ranking_diagnostics.py`
   (dominated candidates no longer take a free top-3 position under the new
   `--pareto-rank-mode protocol`), added `--role-column` for held-out controls, replaced the

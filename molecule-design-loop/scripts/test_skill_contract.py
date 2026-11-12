@@ -6,8 +6,12 @@ rather than a one-off. These tests fail if it grows back, if a pointer breaks, o
 a local path or secret reaches a public repository.
 """
 import ast
+import json
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -199,6 +203,86 @@ class TestPublicRepoHygiene(unittest.TestCase):
                         f"{os.path.relpath(path, REPO)} contains {label}: "
                         f"{found.group(0)[:40] if found else ''}",
                     )
+
+
+class TestRunIntegrity(unittest.TestCase):
+    """The checks that keep a run from editing the rules it is judged by. These guard
+    the guard: removing a verify checkpoint or the change-request route fails here."""
+
+    def workflow_row(self, step):
+        for line in read(SKILL_MD).splitlines():
+            if line.startswith(f"| {step} |"):
+                return line
+        self.fail(f"SKILL.md workflow table has no row for Step {step}")
+
+    def test_round_opens_with_a_snapshot(self):
+        self.assertIn("provenance.py snapshot", self.workflow_row("3"))
+
+    def test_verify_runs_at_approval_scoring_and_write_back(self):
+        for step in ("7", "11", "12"):
+            with self.subTest(step=step):
+                self.assertIn("provenance.py verify", self.workflow_row(step))
+
+    def test_skill_md_freezes_the_skill_and_names_the_change_route(self):
+        text = read(SKILL_MD)
+        self.assertIn("The skill is read-only during a run", text)
+        self.assertIn("templates/change_request_template.md", text)
+        self.assertIn("ROUND_N_CHANGE_REQUEST.md", text)
+        self.assertIn("ROUND_N_PROVENANCE.json", text)
+
+    def test_change_request_template_has_every_section(self):
+        text = read(os.path.join(SKILL_DIR, "templates", "change_request_template.md"))
+        for heading in ("## What to change", "## Why", "## Evidence", "## Invariant touched",
+                        "## Effect on this round", "## Proposed test", "## Decision (user)"):
+            with self.subTest(heading=heading):
+                self.assertIn(heading, text)
+        # The question that exposes a rule change made to rescue a candidate.
+        self.assertIn("move into the top 3", text)
+
+    def test_state_schema_documents_both_records(self):
+        text = read(os.path.join(SKILL_DIR, "references", "design-loop-state-schema.md"))
+        for key in ("provenance", "change_requests"):
+            with self.subTest(key=key):
+                self.assertIn(f"- `{key}`:", text)
+                self.assertIn(f"### `{key}[]`", text)
+        example = json.loads(re.search(r"```json\n(.*?)```", text, re.S).group(1))
+        self.assertIn("provenance", example)
+        self.assertIn("change_requests", example)
+
+    def test_read_only_install_leaves_no_write_bits(self):
+        if not (shutil.which("bash") and shutil.which("rsync")):
+            self.skipTest("installer needs bash and rsync")
+        with tempfile.TemporaryDirectory() as home:
+            try:
+                proc = subprocess.run(
+                    ["bash", os.path.join(REPO, "install_molecule_design_loop.sh"), "--read-only"],
+                    env={**os.environ, "CODEX_HOME": home},
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                installed = os.path.join(home, "skills", "molecule-design-loop")
+                writable = [
+                    os.path.relpath(os.path.join(root, name), installed)
+                    for root, dirs, names in os.walk(installed)
+                    for name in dirs + names
+                    if os.stat(os.path.join(root, name)).st_mode & 0o222
+                ]
+                self.assertEqual(writable, [], "read-only install left writable files")
+            finally:
+                for root, dirs, names in os.walk(home):
+                    for name in dirs + names:
+                        path = os.path.join(root, name)
+                        os.chmod(path, os.stat(path).st_mode | 0o200)
+
+    def test_installer_rejects_unknown_options(self):
+        if not shutil.which("bash"):
+            self.skipTest("installer needs bash")
+        proc = subprocess.run(
+            ["bash", os.path.join(REPO, "install_molecule_design_loop.sh"), "--no-such-flag"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("--read-only", proc.stderr)
 
 
 class TestVersionsAgree(unittest.TestCase):

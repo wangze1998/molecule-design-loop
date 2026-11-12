@@ -3,13 +3,14 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-skill-black)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.4.0-blue)
+![Status](https://img.shields.io/badge/status-v0.5.0-blue)
 
 一个面向 agent 的开源分子与聚合物设计 skill，Claude Code 和 Codex 都能用，强调约束驱动设计。把用户的 Zotero 文献库与主动文献检索结合起来，配合对抗性化学审查、新颖性检查和结果→结论审计，以及 RDKit 过滤、看图确认和 xTB 前的人工审批。结构和审查输入包由带测试的脚本生成，不再由模型手写。
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md) | [分享包说明](SHARE_PACKAGE.zh-CN.md)
 
-> **当前版本：v0.4.0**（2026-11-05）。这是一次排序可信度发布：`scripts/ranking_diagnostics.py --pareto-rank-mode protocol` 保证被支配的候选物不会出现在 `pareto_rank` 前三（Step 11 使用该模式）；默认模式不再静默写出矛盾，而是告警并在报告里点名；新增 `--role-column`，把对照（只封端的参照物、裸基线、已有化合物）排除在支配判定之外，避免它把前沿清空。v0.3.x 已把候选表、审查输入包和文件查看搬进带测试的脚本。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+> **当前版本：v0.5.0**（2026-11-12）。这是一次运行完整性发布：一轮设计不能再悄悄修改评判它的规则。运行期间 skill 是只读的；觉得哪条规则不对，就写一份变更请求交给用户决定；`scripts/provenance.py` 在每轮开始时为 skill 文件、设计规范和运行环境拍快照，并在审批、打分和写回状态之前校验；`install_molecule_design_loop.sh --read-only` 以无写权限的方式安装 skill。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+> 上一版：**v0.4.0**（2026-11-05）。这是一次排序可信度发布：`scripts/ranking_diagnostics.py --pareto-rank-mode protocol` 保证被支配的候选物不会出现在 `pareto_rank` 前三（Step 11 使用该模式）；默认模式不再静默写出矛盾，而是告警并在报告里点名；新增 `--role-column`，把对照（只封端的参照物、裸基线、已有化合物）排除在支配判定之外，避免它把前沿清空。v0.3.x 已把候选表、审查输入包和文件查看搬进带测试的脚本。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 > **xTB 前的人类审批仍然是强制的。** **Zotero MCP 和 Gemini MCP 需要配置**才能使用新步骤——不可用时工作流优雅降级。
 
 如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。
@@ -18,12 +19,14 @@
 
 ## 当前状态
 
-- 当前发布：`v0.4.0` — 排序可信度（`pareto_rank` 前三不再出现被支配者，对照不参与支配判定），建立在 v0.3.x 的 token 经济性改造之上
+- 当前发布：`v0.5.0` — 运行完整性（运行期间 skill 只读、用变更请求代替直接修改、每轮来源快照与校验、只读安装），建立在 v0.4.0 的排序可信度发布之上
 - 仓库定位：Claude Code 与 Codex 通用的模块化 skill，Zotero 驱动、对抗性审查的分子设计
 - 更新记录：[CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - 分享包范围说明：[SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## 版本轨迹
+
+**v0.5.0**（2026-11-12）— 运行完整性。以前在一轮运行中，agent 可以修改 skill 自己的脚本、阈值和协议，而且要等有人跑测试才会发现。现在运行期间 skill 是只读的（完整性规则第 9 条）；觉得哪条规则不对，就写 `ROUND_N_CHANGE_REQUEST.md`，并且必须写明这个改动会让哪些候选物晋升，由用户决定。新增 `scripts/provenance.py`：每轮开始时对 skill 文件、锁定的设计规范和运行环境做哈希，并在步骤 7、11、12 之前校验，快照本身也由自己的哈希值锁定；`DESIGN_LOOP_STATE.json` 记录两者，报告新增「运行完整性」一节。`install_molecule_design_loop.sh --read-only` 在检测之上再加一层阻止。
 
 **v0.4.0**（2026-11-05）— 修复：非支配候选物少于三个时，`pareto_rank` 把第 2、3 名给了被支配者，而报告的 final top 正确地排除了它们，CSV 与报告互相矛盾，也违反了打分协议「被支配者不得进前三」；原测试断言的正是错误编号。`--pareto-rank-mode protocol` 把被支配者顺延到第 3 名之后，Step 11 使用该模式；默认模式保持旧轮次可复现，但会告警并点名冲突。新增 `--role-column`，`role=control` 的行单独汇报，参照化合物不会再支配所有候选物。
 
@@ -65,6 +68,7 @@
 
 ## 最近更新
 
+- **2026-11-12** — v0.5.0：运行完整性——运行期间 skill 只读，规则修改走变更请求，每轮做快照与校验（`scripts/provenance.py`）。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-11-04** — v0.2.6：排序诊断落地为确定性、带测试的脚本（`scripts/ranking_diagnostics.py`）。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-11-03** — v0.2.5：排序开始审计自己——轴冗余检验、被支配数报告、以及揭示约束实际代价的实用性消融。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-06-12** — v0.2.2：强制跨轮失败记忆（`DESIGN_LOOP_STATE.json` schema；步骤 3/4 排除已杀死母核）、合成成本排序轴、可得性偏置生成、实验失败回流。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
@@ -135,6 +139,12 @@ bash install_molecule_design_loop.sh
 bash install_molecule_design_loop.sh --install-research-lit
 ```
 
+以只读方式安装，使一轮设计无法修改评判它的规则（重新运行安装脚本会替换它；见 [`references/run-integrity-protocol.md`](molecule-design-loop/references/run-integrity-protocol.md)）：
+
+```bash
+bash install_molecule_design_loop.sh --read-only
+```
+
 在 Codex 中调用：
 
 ```text
@@ -186,10 +196,13 @@ python3 molecule-design-stage-src/run_design.py \
 
 - `scripts/rdkit_filter_candidates.py`
 - `scripts/render_candidate_gallery.py`
+- `scripts/provenance.py` — 每轮对 skill 文件做快照与校验
+- `references/run-integrity-protocol.md` — 只读 skill、变更请求、来源记录
+- `templates/change_request_template.md` — 运行中代替直接改规则而写的请求
 - `references/candidate_schema.md` — CSV 契约 + 生成规则
 - `references/structure-image-input-protocol.md` — 步骤 0.5
 - `references/nmr-prediction-protocol.md` — 步骤 9.7
-- `references/` 下另有 10 个协议文件（见 [AGENT_GUIDE.md](AGENT_GUIDE.md)）
+- `references/` 下另有 11 个协议文件（见 [AGENT_GUIDE.md](AGENT_GUIDE.md)）
 - `templates/design_spec_template.md`
 - `templates/xtb_approval_template.md`
 
