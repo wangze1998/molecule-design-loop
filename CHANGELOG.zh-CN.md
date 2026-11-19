@@ -4,6 +4,14 @@
 
 ---
 
+## 未发布
+
+### 变更
+
+- skill 有了昵称 **ArtArmAi**：出现在中英文 README 标题、SKILL.md 标题和贡献指南中，
+  并作为触发词写入 SKILL.md 的 description。技术名称 `molecule-design-loop`（目录、
+  skill 的 `name`、安装脚本）保持不变，已有的安装不受影响。
+
 ## v0.5.0 — 2026-11-12
 
 ### 新增

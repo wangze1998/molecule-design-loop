@@ -1,9 +1,11 @@
-# Molecule Design Loop
+# ArtArmAi — Molecule Design Loop
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-skill-black)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
 ![Status](https://img.shields.io/badge/status-v0.5.0-blue)
+
+**ArtArmAi** 是这个 skill 的昵称；安装和加载时使用的技术名称仍是 `molecule-design-loop`。
 
 一个面向 agent 的开源分子与聚合物设计 skill，Claude Code 和 Codex 都能用，强调约束驱动设计。把用户的 Zotero 文献库与主动文献检索结合起来，配合对抗性化学审查、新颖性检查和结果→结论审计，以及 RDKit 过滤、看图确认和 xTB 前的人工审批。结构和审查输入包由带测试的脚本生成，不再由模型手写。
 

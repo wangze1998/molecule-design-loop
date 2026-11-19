@@ -4,6 +4,15 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
+## Unreleased
+
+### Changed
+
+- The skill now carries the nickname **ArtArmAi**: shown in both README titles, the
+  SKILL.md heading and the contributor guides, and accepted as a trigger word in the
+  SKILL.md description. The technical name `molecule-design-loop` (directory, skill
+  `name`, install script) is unchanged, so existing installs keep working.
+
 ## v0.5.0 — 2026-11-12
 
 ### Added

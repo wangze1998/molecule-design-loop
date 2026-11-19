@@ -1,4 +1,4 @@
-# Molecule Design Loop Agent Guide
+# ArtArmAi (Molecule Design Loop) Agent Guide
 
 **For AI agents reading this repo.** If you are a human, start with [README.md](README.md).
 
