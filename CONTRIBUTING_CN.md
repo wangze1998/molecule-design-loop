@@ -1,4 +1,4 @@
-# 为 Molecule Design Loop 做贡献
+# 为 ArtArmAi（Molecule Design Loop）做贡献
 
 [English](CONTRIBUTING.md) | 中文版
 
