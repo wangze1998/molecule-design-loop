@@ -3,7 +3,7 @@ name: "molecule-design-loop"
 description: "Constraint-driven design loop for small molecules, polymers and materials. Use when the user asks to design molecules, ligands, inhibitors, hosts, catalysts, dyes, photoswitches, monomers, repeat units or copolymers against a written design spec; for SAR-guided analog series; or for an autonomous design round with literature grounding, RDKit filtering, synthesis-feasibility triage, structural review before calculation, optional xTB evidence, and scored iteration. Mines the user's Zotero library and searches current literature in parallel. Nickname: ArtArmAi. Triggers: ArtArmAi, molecule design loop, design a series, 分子设计, 设计一轮候选物, candidate generation, scaffold optimisation, polymer repeat-unit design."
 license: "MIT"
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   requires: "Python 3.9+, RDKit; PyYAML for build_candidates.py"
 ---
 

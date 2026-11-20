@@ -4,7 +4,11 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ---
 
-## Unreleased
+## v0.6.0 — 2026-11-20
+
+Selectable reviewers. Who reviews the candidates and who searches the literature is now
+the user's choice, made once, recorded every round, and never switched silently.
+Setup for your own machine: [REVIEWER_SETUP.md](REVIEWER_SETUP.md).
 
 ### Added
 
@@ -50,9 +54,6 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
   sources, or Step 5.5 leaves every candidate `uncertain`.
 - `provenance.py snapshot` notes are `reviewer=<label>:<model>` and
   `search=<label>:<model>` instead of `gemini_model=…`.
-
-### Changed (nickname)
-
 - The skill now carries the nickname **ArtArmAi**: shown in both README titles, the
   SKILL.md heading and the contributor guides, and accepted as a trigger word in the
   SKILL.md description. The technical name `molecule-design-loop` (directory, skill
