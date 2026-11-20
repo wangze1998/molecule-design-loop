@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-skill-black)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.5.0-blue)
+![Status](https://img.shields.io/badge/status-v0.6.0-blue)
 
 **ArtArmAi** 是这个 skill 的昵称；安装和加载时使用的技术名称仍是 `molecule-design-loop`。
 
@@ -11,9 +11,9 @@
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [更新日志](CHANGELOG.zh-CN.md) | [分享包说明](SHARE_PACKAGE.zh-CN.md)
 
-> **当前版本：v0.5.0**（2026-11-12）。这是一次运行完整性发布：一轮设计不能再悄悄修改评判它的规则。运行期间 skill 是只读的；觉得哪条规则不对，就写一份变更请求交给用户决定；`scripts/provenance.py` 在每轮开始时为 skill 文件、设计规范和运行环境拍快照，并在审批、打分和写回状态之前校验；`install_molecule_design_loop.sh --read-only` 以无写权限的方式安装 skill。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
-> 上一版：**v0.4.0**（2026-11-05）。这是一次排序可信度发布：`scripts/ranking_diagnostics.py --pareto-rank-mode protocol` 保证被支配的候选物不会出现在 `pareto_rank` 前三（Step 11 使用该模式）；默认模式不再静默写出矛盾，而是告警并在报告里点名；新增 `--role-column`，把对照（只封端的参照物、裸基线、已有化合物）排除在支配判定之外，避免它把前沿清空。v0.3.x 已把候选表、审查输入包和文件查看搬进带测试的脚本。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
-> **xTB 前的人类审批仍然是强制的。** **Zotero MCP 和 Gemini MCP 需要配置**才能使用新步骤——不可用时工作流优雅降级。
+> **当前版本：v0.6.0**（2026-11-20）。这是一次「审阅者可选」发布：skill 从不审自己的候选物，现在由你决定谁来审——Gemini、Codex、Antigravity、DeepSeek 或手动转交，可以直连，也可以通过 Agent HUD 开一个独立的 agent 会话。选择只做一次（`reviewer.json` 或 `-- reviewer: …`）；与执行者同一模型家族的审阅者会被拒绝；只有在失败能证明请求没跑过时才换后备；每一次尝试都有记录。第 3.5、9.5 步执行者可以在同一会话里回应审阅者两次，以审阅者最后的回答为准。配置方法见 [REVIEWER_SETUP.zh-CN.md](REVIEWER_SETUP.zh-CN.md)。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+> 上一版：**v0.5.0**（2026-11-12）。运行完整性发布：运行期间 skill 只读，觉得规则不对就写变更请求交给用户决定，`scripts/provenance.py` 每轮对 skill 文件、设计规范和运行环境做快照与校验。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+> **xTB 前的人类审批仍然是强制的。** 审阅步骤需要配置 **Zotero MCP 和至少一个审阅后端**——见 [REVIEWER_SETUP.zh-CN.md](REVIEWER_SETUP.zh-CN.md)。
 
 如果你是 AI agent，请先看 [AGENT_GUIDE.md](AGENT_GUIDE.md)。
 
@@ -21,12 +21,14 @@
 
 ## 当前状态
 
-- 当前发布：`v0.5.0` — 运行完整性（运行期间 skill 只读、用变更请求代替直接修改、每轮来源快照与校验、只读安装），建立在 v0.4.0 的排序可信度发布之上
+- 当前发布：`v0.6.0` — 审阅者可选（审阅与检索后端可选 Gemini、Codex、Antigravity、DeepSeek、manual，直连或经 Agent HUD；安全后备、独立性检查、反驳对话），建立在 v0.5.0 的运行完整性发布之上
 - 仓库定位：Claude Code 与 Codex 通用的模块化 skill，Zotero 驱动、对抗性审查的分子设计
 - 更新记录：[CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - 分享包范围说明：[SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## 版本轨迹
+
+**v0.6.0**（2026-11-20）— 审阅者可选。以前所有审阅和检索步骤都写死 Gemini：Gemini 不可用时（额度用完、许可被拒、账号所在地区不符合资格），必做步骤要么停下，要么被临时换掉而没有记录。新增第 0 步，按本次调用、`molecule-design-stage/reviewer.json`、用户配置、默认 Gemini 的顺序确定 `review` 和 `search` 两个角色；由 `scripts/reviewer_route.py` 解析，拒绝与执行者同一模型家族的后端，只有在失败能证明请求没跑过时才换到用户配置的后备，超时则以 `REVIEW_UNAVAILABLE` 停下。审阅者可以是通过 Agent HUD 开的独立 agent 会话；第 3.5、9.5 步允许两轮反驳对话，以审阅者最后的回答为准。`DESIGN_LOOP_STATE.json` 1.2 记录每一次选路和尝试；`REVIEWER_SETUP.zh-CN.md` 讲安装和一条命令的检查。
 
 **v0.5.0**（2026-11-12）— 运行完整性。以前在一轮运行中，agent 可以修改 skill 自己的脚本、阈值和协议，而且要等有人跑测试才会发现。现在运行期间 skill 是只读的（完整性规则第 9 条）；觉得哪条规则不对，就写 `ROUND_N_CHANGE_REQUEST.md`，并且必须写明这个改动会让哪些候选物晋升，由用户决定。新增 `scripts/provenance.py`：每轮开始时对 skill 文件、锁定的设计规范和运行环境做哈希，并在步骤 7、11、12 之前校验，快照本身也由自己的哈希值锁定；`DESIGN_LOOP_STATE.json` 记录两者，报告新增「运行完整性」一节。`install_molecule_design_loop.sh --read-only` 在检测之上再加一层阻止。
 
@@ -70,6 +72,7 @@
 
 ## 最近更新
 
+- **2026-11-20** — v0.6.0：审阅者可选——自己选谁来审、谁来查文献，可直连或经 Agent HUD，带安全后备、独立性检查和反驳对话。配置见 [REVIEWER_SETUP.zh-CN.md](REVIEWER_SETUP.zh-CN.md)。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-11-12** — v0.5.0：运行完整性——运行期间 skill 只读，规则修改走变更请求，每轮做快照与校验（`scripts/provenance.py`）。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-11-04** — v0.2.6：排序诊断落地为确定性、带测试的脚本（`scripts/ranking_diagnostics.py`）。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
 - **2026-11-03** — v0.2.5：排序开始审计自己——轴冗余检验、被支配数报告、以及揭示约束实际代价的实用性消融。见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。

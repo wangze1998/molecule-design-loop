@@ -4,7 +4,10 @@
 
 ---
 
-## 未发布
+## v0.6.0 — 2026-11-20
+
+审阅者可选。由谁审候选物、由谁查文献，现在由用户选定一次、每轮记录在案，绝不悄悄更换。
+在自己电脑上的配置方法见 [REVIEWER_SETUP.zh-CN.md](REVIEWER_SETUP.zh-CN.md)。
 
 ### 新增
 
@@ -34,9 +37,6 @@
 - 五个审阅 / 检索协议改为通过选定的路线调用；为兼容起见，文件名和 `gemini_*` 列名不变，每份输出开头加一行
   `Reviewer:`。检索能力为 `needs_check` 的后端必须列出实际检索到的来源，否则第 5.5 步把所有候选物记为 `uncertain`。
 - `provenance.py snapshot` 的备注改为 `reviewer=<label>:<model>` 和 `search=<label>:<model>`，不再用 `gemini_model=…`。
-
-### 变更（昵称）
-
 - skill 有了昵称 **ArtArmAi**：出现在中英文 README 标题、SKILL.md 标题和贡献指南中，
   并作为触发词写入 SKILL.md 的 description。技术名称 `molecule-design-loop`（目录、
   skill 的 `name`、安装脚本）保持不变，已有的安装不受影响。

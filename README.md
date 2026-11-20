@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-skill-black)
 ![Codex Skill](https://img.shields.io/badge/Codex-skill-black)
-![Status](https://img.shields.io/badge/status-v0.5.0-blue)
+![Status](https://img.shields.io/badge/status-v0.6.0-blue)
 
 **ArtArmAi** is the nickname of this skill; its technical name, used for installation and loading, stays `molecule-design-loop`.
 
@@ -11,9 +11,9 @@ Open agent skill for constraint-driven molecule and polymer design, for Claude C
 
 [English](README.md) | [中文说明](README.zh-CN.md) | [Changelog](CHANGELOG.md) | [Share Package](SHARE_PACKAGE.md)
 
-> **Current release: v0.5.0** (2026-11-12). A run-integrity release: a design run can no longer quietly change the rules it is judged by. The skill is read-only during a run; a rule that looks wrong becomes a written change request the user decides on; `scripts/provenance.py` snapshots the skill files, spec and environment at the start of each round and verifies them before approval, scoring and write-back; and `install_molecule_design_loop.sh --read-only` installs the skill without write permission. See [CHANGELOG.md](CHANGELOG.md).
-> Previous: **v0.4.0** (2026-11-05). A ranking-integrity release: `scripts/ranking_diagnostics.py --pareto-rank-mode protocol` keeps every dominated candidate out of the top 3 of `pareto_rank` (Step 11 uses it), the default mode now flags the conflict instead of writing it silently, and `--role-column` holds controls (cap-only references, baselines, incumbents) out of the dominance comparison so they cannot empty the front. Builds on v0.3.x, which moved candidate tables, review packets and file inspection into tested scripts. See [CHANGELOG.md](CHANGELOG.md).
-> **Human approval stays mandatory before xTB.** **Zotero MCP and Gemini MCP must be configured** for the new steps — the skill falls back gracefully when they are unavailable.
+> **Current release: v0.6.0** (2026-11-20). A selectable-reviewer release: the skill never reviews its own candidates, and now you choose who does — Gemini, Codex, Antigravity, DeepSeek or a manual hand-off, directly or as a separate agent session through Agent HUD. The choice is made once (`reviewer.json` or `-- reviewer: …`), a reviewer from the executor's own model family is refused, a backup is used only when the failure proves nothing ran, and every attempt is recorded. At Steps 3.5 and 9.5 the executor may answer the reviewer's critique twice in the same session; the reviewer has the last word. Set it up with [REVIEWER_SETUP.md](REVIEWER_SETUP.md). See [CHANGELOG.md](CHANGELOG.md).
+> Previous: **v0.5.0** (2026-11-12). A run-integrity release: the skill is read-only during a run, a rule that looks wrong becomes a change request the user decides on, and `scripts/provenance.py` snapshots and verifies the skill files, spec and environment every round. See [CHANGELOG.md](CHANGELOG.md).
+> **Human approval stays mandatory before xTB.** **Zotero MCP and at least one reviewer backend must be configured** for the review steps — see [REVIEWER_SETUP.md](REVIEWER_SETUP.md).
 
 AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM consumption rather than human browsing.
 
@@ -21,12 +21,14 @@ AI agents: read [AGENT_GUIDE.md](AGENT_GUIDE.md) first. It is written for LLM co
 
 ## Project Status
 
-- Current release: `v0.5.0` — run integrity: skill frozen during a run, change requests instead of edits, provenance snapshot and verify per round, read-only install; builds on the v0.4.0 ranking-integrity release
+- Current release: `v0.6.0` — selectable reviewers: choose the review and search backend (Gemini, Codex, Antigravity, DeepSeek, manual; direct or through Agent HUD), safe fallback, independence check, rebuttal exchange; builds on the v0.5.0 run-integrity release
 - Repo focus: modular agent skill for Zotero-grounded, adversarially reviewed molecular design
 - Release notes: [CHANGELOG.md](CHANGELOG.md) | [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)
 - Share-package scope: [SHARE_PACKAGE.md](SHARE_PACKAGE.md) | [SHARE_PACKAGE.zh-CN.md](SHARE_PACKAGE.zh-CN.md)
 
 ## Release Track
+
+**v0.6.0** (2026-11-20) — Selectable reviewers. Every review and search step was wired to Gemini, so when Gemini could not be reached (credits gone, licence refused, account not eligible in its region) the mandatory steps stopped or were switched without a record. New Step 0 resolves a `review` role and a `search` role from the invocation, `molecule-design-stage/reviewer.json`, a user file, or the Gemini default; `scripts/reviewer_route.py` does the resolution, refuses the executor's own model family, moves to an opt-in backup only after failures that prove nothing ran, and stops with `REVIEW_UNAVAILABLE` after a timeout. Reviewers can be separate agent sessions opened through Agent HUD, and Steps 3.5 / 9.5 allow a two-message rebuttal exchange in which the reviewer's last answer is the record. `DESIGN_LOOP_STATE.json` 1.2 records every route and attempt; `REVIEWER_SETUP.md` covers installation and a one-command check.
 
 **v0.5.0** (2026-11-12) — Run integrity. During a run the agent could edit the skill's own scripts, thresholds and protocols, and nothing caught it until someone ran the tests. Now the skill is read-only during a run (integrity rule 9); a rule that looks wrong becomes `ROUND_N_CHANGE_REQUEST.md`, which must say which candidates the change would promote, and the user decides. New `scripts/provenance.py` hashes the skill files, the locked spec and the environment at the start of each round and verifies them before Steps 7, 11 and 12, with the snapshot pinned by its own hash; `DESIGN_LOOP_STATE.json` records both, and the report gains a *Run integrity* section. `install_molecule_design_loop.sh --read-only` adds prevention on top of detection.
 
@@ -99,6 +101,7 @@ python3 -m pytest molecule-design-loop/scripts
 
 ## What's New
 
+- **2026-11-20** — v0.6.0: selectable reviewers — choose who reviews and who searches, reach them directly or through Agent HUD, with safe fallback, an independence check and a rebuttal exchange. Setup: [REVIEWER_SETUP.md](REVIEWER_SETUP.md). See [CHANGELOG.md](CHANGELOG.md).
 - **2026-11-12** — v0.5.0: run integrity — the skill is read-only during a run, rule changes go through a change request, and every round is snapshotted and verified (`scripts/provenance.py`). See [CHANGELOG.md](CHANGELOG.md).
 - **2026-11-04** — v0.3.0: token economy — router SKILL.md, generated candidate tables and review packets, bounded file inspection, and a contract test that keeps it that way. See [CHANGELOG.md](CHANGELOG.md).
 - **2026-11-04** — v0.2.6: the ranking diagnostics become a deterministic, tested script (`scripts/ranking_diagnostics.py`). See [CHANGELOG.md](CHANGELOG.md).
