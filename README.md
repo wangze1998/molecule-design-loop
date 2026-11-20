@@ -82,6 +82,7 @@ Every script takes `--help`, writes to a file you name, and has tests next to it
 | `ranking_diagnostics.py` | dominance, Pareto and shadow ranks, Kendall τ-b matrix | stdlib |
 | `inspect_round.py` | bounded views of a round file: `summary`, `cols`, `row`, `grep`, `check`, `html` | stdlib |
 | `provenance.py` | `snapshot` / `verify` / `diff` the skill files, locked spec and environment a round ran on; names every changed file | stdlib |
+| `reviewer_route.py` | pick the reviewer and search backend (Gemini, Codex, Antigravity, DeepSeek, manual; direct or through Agent HUD), with safe fallback and an independence check | stdlib |
 
 Start from [`examples/example_candidates_config.yaml`](examples/example_candidates_config.yaml):
 
@@ -230,6 +231,8 @@ Bundled helpers inside `molecule-design-loop/`:
 - `scripts/rdkit_filter_candidates.py`
 - `scripts/render_candidate_gallery.py`
 - `scripts/provenance.py` — per-round snapshot and verify of the skill files
+- `scripts/reviewer_route.py` — pick the reviewer / search backend (direct or through Agent HUD), safe fallback, independence check
+- `references/reviewer-selection-protocol.md` — Step 0: choosing reviewers, Agent HUD calls, the rebuttal exchange
 - `references/run-integrity-protocol.md` — read-only skill, change requests, provenance
 - `templates/change_request_template.md` — what a run writes instead of editing a rule
 - `references/candidate_schema.md` — CSV contracts + generation rules
@@ -259,7 +262,25 @@ Optional:
 
 - xTB for the quantum-screening stage
 - `research-lit` as a companion literature skill
-- `gemini-research` if your Codex setup supports it
+- `gemini-research` / `gemini-review` MCP (the default reviewer and search backend)
+- any other reviewer: Codex MCP, Antigravity MCP, the Agent HUD MCP (opens a Codex,
+  Antigravity or DeepSeek session as reviewer), or `manual`
+
+### Choosing a reviewer
+
+Put a standing choice in `~/.config/molecule-design-loop/reviewer.json`, a project's
+choice in `molecule-design-stage/reviewer.json`, or pass `-- reviewer: …` for one run:
+
+```json
+{"review": {"backend": "codex", "via": "agent-hud"},
+ "search": {"backend": "gemini"},
+ "fallback": ["deepseek@agent-hud", "manual"]}
+```
+
+The executor's own model family is never accepted as reviewer, and a review is never
+switched to another provider after it may have run. Install and check each backend
+with **[REVIEWER_SETUP.md](REVIEWER_SETUP.md)**; the rules are in
+[`reviewer-selection-protocol.md`](molecule-design-loop/references/reviewer-selection-protocol.md).
 
 ## Repository Layout
 

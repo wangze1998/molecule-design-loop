@@ -2,6 +2,8 @@
 
 Mandatory. Runs after synthesis feasibility gate, before the HTML gallery.
 
+Dispatch through the `search` route resolved at Step 0 ([reviewer-selection-protocol.md](reviewer-selection-protocol.md)). The `gemini-research` tools below are the default route. Any other backend must list the sources it retrieved (DOI or URL each); an answer without them is incomplete and every candidate stays `uncertain`.
+
 ## Prior art search call
 
 ```
@@ -16,7 +18,7 @@ notes: "Check whether each described structure has been previously reported. Fla
 ## Building the packet
 
 Do not retype artifacts into the prompt. Build the packet from the round files and
-give Gemini the path:
+give the search backend the path:
 
 ```bash
 python3 scripts/build_gemini_inputs.py \
@@ -40,7 +42,7 @@ reviewer reads; it does not require moving the bytes through the conversation.
 
 ## prior_art_status values
 
-- `novel` — no close structural match found
+- `novel` — no close structural match found by a search that names what it searched
 - `analog` — similar scaffold reported; the specific modification is new
 - `known` — structure matches a reported compound; promote only as a control candidate
 - `uncertain` — insufficient information; flag for manual check

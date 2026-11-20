@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Assemble the Gemini input packets for Steps 3.5, 5.5 and 9.5 (one round).
+"""Assemble the review input packets for Steps 3.5, 5.5 and 9.5 (one round).
+
+The packets are reviewer-neutral: whichever backend reviewer_route.py selected reads
+them. The file name is historical.
 
 Why this exists
 ---------------
@@ -295,7 +298,7 @@ def main():
         print(f"  step {step}: {target} ({os.path.getsize(target)} bytes)")
         written += 1
     print(f"wrote {written} packet(s) -> {args.out}")
-    print("Give Gemini these paths. Do not paste the contents into the conversation.")
+    print("Give the selected reviewer these paths. Do not paste the contents into the conversation.")
 
 
 if __name__ == "__main__":

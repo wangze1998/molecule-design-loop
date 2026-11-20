@@ -67,7 +67,7 @@ expensive. Four rules, stated in full in SKILL.md:
 2. **Generate, don't type.** Derived columns belong to `scripts/build_candidates.py`.
    Write judgement fields in a config; `--print-columns` shows the split.
 3. **Pass paths, not payloads.** Build review packets with
-   `scripts/build_gemini_inputs.py` and hand Gemini the path.
+   `scripts/build_gemini_inputs.py` and hand the selected reviewer the path.
 4. **Hand off between stages.** Write `DESIGN_LOOP_STATE.json` and continue in a
    fresh session after Step 2, at the Step 7 approval, and between rounds.
 
@@ -84,6 +84,7 @@ One integrity rule belongs here too, because it is about what you may touch:
 - `molecule-design-loop/SKILL.md` — main specification
 - `molecule-design-loop/scripts/build_candidates.py` — one YAML config to `ROUND_N_CANDIDATES.csv`; derives the mechanical columns and validates every structure
 - `molecule-design-loop/scripts/build_gemini_inputs.py` — Step 3.5 / 5.5 / 9.5 review packets from the round files
+- `molecule-design-loop/scripts/reviewer_route.py` — Step 0 reviewer / search backend selection, safe fallback, independence check
 - `molecule-design-loop/scripts/inspect_round.py` — bounded views of a round file (stdlib only)
 - `molecule-design-loop/scripts/rdkit_filter_candidates.py` — filter and annotate candidate CSV files
 - `molecule-design-loop/scripts/render_candidate_gallery.py` — render HTML gallery from filtered CSV
@@ -102,7 +103,8 @@ Reference protocols in `molecule-design-loop/references/`:
 | `zotero-extraction-protocol.md` | 1.5-A — Zotero library mining |
 | `active-search-protocol.md` | 1.5-B — latest + landmark papers |
 | `candidate_schema.md` | 3 — CSV contracts, bucket rules, generation rules |
-| `adversarial-review-protocol.md` | 3.5 — Gemini adversarial review |
+| `reviewer-selection-protocol.md` | 0 — choose reviewer / search backend, Agent HUD sessions, rebuttal exchange, safe fallback |
+| `adversarial-review-protocol.md` | 3.5 — adversarial review (selected reviewer) |
 | `synthesis-gate-schema.md` | 5 — synthesis feasibility gate |
 | `novelty-check-protocol.md` | 5.5 — prior-art search |
 | `structure-image-input-protocol.md` | 0.5 — extracting SMILES from images |
@@ -147,12 +149,13 @@ Prefer a project-local `molecule-design-stage/` directory with:
 
 ## Execution Checklist
 
+1. Resolve the `review` and `search` routes with `reviewer_route.py resolve` (Step 0); record them in `DESIGN_LOOP_STATE.json` `reviewer_routes[]`.
 1. Extract structures from user-provided images if any (Step 0.5).
 2. Lock the design brief into `DESIGN_SPEC_LOCKED.md`.
 3. Run Zotero extraction (1.5-A) and active search (1.5-B) in parallel.
 4. Merge into `LIT_PACKET.md`; flag contradictions.
 5. Snapshot the skill with `provenance.py snapshot` and pin the printed hash in `DESIGN_LOOP_STATE.json` `provenance[]`. Then generate interpretable SMILES candidates with `build_candidates.py`, tied to specific constraints. Before generating, read `DESIGN_LOOP_STATE.json` and exclude any candidate matching a `killed_motifs[]` SMARTS/scaffold (Step 3, Fix A); bias a portion toward `available_building_blocks[]` (Fix C).
-6. Run Gemini adversarial review (Step 3.5): build the packet with `build_gemini_inputs.py --steps 3.5` and pass its path.
+6. Run the adversarial review (Step 3.5) on the selected reviewer: build the packet with `build_gemini_inputs.py --steps 3.5` and pass its path; contest flags only through the rebuttal exchange (at most 2 messages, evidence per item).
 7. Run deterministic RDKit filtering with `--forbidden-smarts` = spec `forbidden_motifs` ∪ `DESIGN_LOOP_STATE.json` `killed_motifs[].smarts`; keep rejection reasons.
 8. Run synthesis-feasibility gate (Step 5), emitting sortable `synthesis_cost`, `time_to_first_sample`, `overall_yield_estimate`, and `hazard_toxicity_flag`; record `route_alternatives` when more than one route is supported by evidence.
 9. Run novelty check (Step 5.5).

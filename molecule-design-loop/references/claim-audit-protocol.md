@@ -1,6 +1,6 @@
 # Result-to-Claim Audit Protocol (Step 9.5)
 
-Runs before Gemini scoring (Step 11). **Mandatory in either of two cases:**
+Runs before scoring (Step 11). Dispatch through the `review` route resolved at Step 0 ([reviewer-selection-protocol.md](reviewer-selection-protocol.md)). The `mcp__gemini-review__*` tools named below are the default `gemini` route; another backend uses its own tools from that file, with the same prompt, packet and output format. **Mandatory in either of two cases:**
 
 1. **xTB ran** — audit what those numbers do and do not prove.
 2. **The design objective is a property this loop cannot evidence at all** — binding affinity, potency, selectivity, catalytic activity, self-assembly behaviour, permeability, or in vivo outcome. This case is mandatory *even when xTB did not run*, and even when there is nothing to audit — the audit's output is then the declaration that no direct evidence exists.
@@ -9,7 +9,7 @@ Prevents the core ARIS failure mode: computational results promoted into stronge
 
 Case 2 exists because the more dangerous failure is silent. A candidate can pass hard constraints, clear the synthesis gate, have clean descriptors and a strong literature analogy, and receive a score of 5 — while the loop has produced **zero evidence about the property the chemist actually cares about**. Nothing else in the workflow says so out loud. Bench time then gets spent on confidence the loop never earned.
 
-## Gemini call
+## Reviewer call
 
 ```
 system: "You are a chemistry claim auditor. Your job is to produce a precise evidence-to-claim map for each computational result. For every xTB or RDKit number: (1) State exactly what this measurement proves about the molecular design. (2) State what it explicitly cannot prove — scope limitations, model approximations, missing validation. (3) State the minimum additional evidence needed to promote this into a synthesis recommendation. Do not allow chemical interpretation to outrun the data. Flag every case where a claim in the candidate rationale exceeds what the computation supports."
@@ -19,12 +19,14 @@ prompt: the Step 9.5 packet (see "Building the packet" below) -- locked spec,
         evidence files.
 ```
 
-Use `mcp__gemini-review__review_start` + `mcp__gemini-review__review_status` for async.
+On the `gemini` route use `mcp__gemini-review__review_start` + `mcp__gemini-review__review_status` for async.
+
+The executor may contest `overclaim` flags through the rebuttal exchange (same session, at most `REVIEW_REBUTTAL_ROUNDS`); the auditor's last answer is the record, and only the auditor can clear a flag.
 
 ## Building the packet
 
 Do not retype artifacts into the prompt. Build the packet from the round files and
-give Gemini the path:
+give the reviewer the path:
 
 ```bash
 python3 scripts/build_gemini_inputs.py \
@@ -41,6 +43,8 @@ reviewer reads; it does not require moving the bytes through the conversation.
 
 ```markdown
 # Round N — Result-to-Claim Audit
+
+Reviewer: <label> · model <id> (<model_source>) · independence <verdict>
 
 ## Claims Matrix
 | candidate_id | computation | result_value | claim_supported | claim_not_supported | minimum_evidence_to_promote | auditor_flag |
@@ -66,8 +70,8 @@ reviewer reads; it does not require moving the bytes through the conversation.
 
 ## Rules
 
-- Step 11 (Gemini scoring) must read `ROUND_N_CLAIM_AUDIT.md` before scoring.
-- Gemini may not assign a score of 4 or 5 to any candidate with `auditor_flag: overclaim` unless the overclaim is corrected.
+- Step 11 (scoring) must read `ROUND_N_CLAIM_AUDIT.md` before scoring.
+- The scorer may not assign a score of 4 or 5 to any candidate with `auditor_flag: overclaim` unless the overclaim is corrected.
 - `ROUND_N_DECISION.md` must include a `claim_audit_flag` column sourced from this audit.
 - If xTB did not run **and** no design objective falls under case 2, skip this step and mark `claim_audit_status: not_run_xtb_unavailable` in `DESIGN_LOOP_STATE.json`.
 - If xTB did not run but case 2 applies, the audit still runs. Its prompt uses the design spec and candidate rationales alone; its job is to produce the `Un-Evidenced Design Objectives` section and assign `no_direct_evidence`.

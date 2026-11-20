@@ -12,7 +12,7 @@ It is **not** a free-form scratchpad. The fields below are a contract: Step 3 (c
 
 ## Top-level keys
 
-- `schema_version`: string, currently `"1.1"`. `1.1` adds `provenance` and `change_requests`; a `1.0` file without them is still valid and gains them at its next round.
+- `schema_version`: string, currently `"1.2"`. `1.1` added `provenance` and `change_requests`; `1.2` adds `reviewer_routes`. An older file without them is still valid and gains them at its next round.
 - `design_mode`: `"small_molecule"` or `"polymer"`.
 - `current_round`: integer, the round just completed.
 - `max_rounds`: integer (matches `MAX_ROUNDS`).
@@ -27,6 +27,7 @@ It is **not** a free-form scratchpad. The fields below are a contract: Step 3 (c
 - `loop_calibration`: object — the loop's own track record: what it promoted vs. what actually worked (see below).
 - `provenance`: array — which skill version, spec and environment each round ran on, and every verify (see below).
 - `change_requests`: array — requests to change the skill raised during runs, and how each was decided (see below).
+- `reviewer_routes`: array — which backend reviewed and searched each round, every attempt including failed ones, and whether the review was independent (see below).
 - `notes`: optional free-text string for retractions, approved spec changes, or cross-round caveats.
 
 ### `killed_motifs[]` (each object)
@@ -106,6 +107,30 @@ Written by Step 3 and appended to at every verify. Procedure in [run-integrity-p
 - `verifications[]`: one per check — `step` (`7`, `11`, `12`), `result` (`ok`, `skill_drift`, `spec_drift`, `bad_snapshot`), `detail` (the files named, or `""`).
 - `resnapshots[]`: when an accepted change request or an approved spec change required a new snapshot mid-round — `snapshot_file`, `snapshot_sha256`, `reason`, `request_id` (or `null` for a spec change).
 
+### `reviewer_routes[]` (each object)
+
+One per role per round, plus one per attempt after a failure, so a fallback is never invisible. Procedure in [reviewer-selection-protocol.md](reviewer-selection-protocol.md).
+
+- `round`: integer.
+- `role`: `review` or `search`.
+- `step`: the step that used it (`1.5-B`, `3.5`, `5.5`, `9.5`, `11`), or `0` for the round's resolution.
+- `label`: e.g. `"gemini"`, `"codex@agent-hud"`.
+- `source`: `invocation`, `project`, `user`, `default` or `fallback`.
+- `requested_model`: what the config asked for, or `null`.
+- `reported_model`: the model that actually answered, or `null` when unknown.
+- `model_source`: `transport`, `agent_hud_default`, `self_report` or `unknown`.
+- `session_id`: thread, agent or Agent HUD session id; `null` for `manual`.
+- `status`: `ok`, `incomplete` or a failure reason from the protocol (`billing_rejected`, `timeout`, …).
+- `independence`: `independent`, `same_family`, `unknown` or `not_applicable` (failed attempt).
+- `acceptance`: `accepted`, `provisional` or `none`.
+- `rebuttal_rounds`: integer, Steps 3.5 / 9.5; `disputed`: array of candidate ids left contested.
+- `raw_file`: path of the saved raw reply, e.g. `"_reviews/ROUND_1_step3.5_codex@agent-hud_raw.md"`.
+
+**Rules**
+
+- Never delete an attempt, failed ones included. A failure after dispatch is recorded with its reason and is not followed by another provider in the same step.
+- A `provisional` review cannot clear a `revise` or `overclaim` flag.
+
 ### `change_requests[]` (each object)
 
 - `request_id`: stable id, e.g. `"cr_r2_01"`.
@@ -132,13 +157,14 @@ Written by Step 3 and appended to at every verify. Procedure in [run-integrity-p
 - **Step 12** writes new `killed_motifs[]` / `failed_reactions[]` entries from experimental `failure_mode` and adversarial `likely_lab_failure_mode`, so the next round excludes them automatically. It also updates `loop_calibration` by comparing what the previous round promoted against what the experiments returned.
 - **Steps 7, 11, 12** append a verification to the round's `provenance[]` entry and stop on anything but `ok` (or a `spec_drift` the user approved).
 - **Any step** may append to `change_requests[]`; an `open` request stops the run at that step.
-- **Step 13** reports `loop_calibration` in `DESIGN_REPORT.md`, unflattering results included, and reports `provenance[]` and `change_requests[]` under *Run integrity*.
+- **Step 0** appends the round's resolved routes to `reviewer_routes[]`; **Steps 1.5-B, 3.5, 5.5, 9.5, 11** append each attempt.
+- **Step 13** reports `loop_calibration` in `DESIGN_REPORT.md`, unflattering results included, and reports `provenance[]`, `change_requests[]` and `reviewer_routes[]` under *Run integrity*.
 
 ## Minimal valid example
 
 ```json
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "design_mode": "small_molecule",
   "current_round": 1,
   "max_rounds": 3,
@@ -250,6 +276,42 @@ Written by Step 3 and appended to at every verify. Procedure in [run-integrity-p
       "status": "rejected",
       "decision_note": "TPSA limit comes from the spec; raise it there if needed, not in the script",
       "resolved_in_version": null
+    }
+  ],
+  "reviewer_routes": [
+    {
+      "round": 1,
+      "role": "review",
+      "step": "3.5",
+      "label": "gemini",
+      "source": "default",
+      "requested_model": "gemini-2.5-flash",
+      "reported_model": null,
+      "model_source": "unknown",
+      "session_id": null,
+      "status": "billing_rejected",
+      "independence": "not_applicable",
+      "acceptance": "none",
+      "rebuttal_rounds": 0,
+      "disputed": [],
+      "raw_file": null
+    },
+    {
+      "round": 1,
+      "role": "review",
+      "step": "3.5",
+      "label": "codex@agent-hud",
+      "source": "fallback",
+      "requested_model": null,
+      "reported_model": "gpt-6.2-astra",
+      "model_source": "agent_hud_default",
+      "session_id": "example-session-id",
+      "status": "ok",
+      "independence": "independent",
+      "acceptance": "accepted",
+      "rebuttal_rounds": 1,
+      "disputed": ["cand_11"],
+      "raw_file": "_reviews/ROUND_1_step3.5_codex@agent-hud_raw.md"
     }
   ],
   "notes": ""

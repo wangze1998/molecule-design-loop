@@ -199,6 +199,8 @@ python3 molecule-design-stage-src/run_design.py \
 - `scripts/rdkit_filter_candidates.py`
 - `scripts/render_candidate_gallery.py`
 - `scripts/provenance.py` — 每轮对 skill 文件做快照与校验
+- `scripts/reviewer_route.py` — 选择审阅与检索后端（直连或经 Agent HUD），安全后备与独立性检查
+- `references/reviewer-selection-protocol.md` — 第 0 步：选审阅者、Agent HUD 调用、反驳对话
 - `references/run-integrity-protocol.md` — 只读 skill、变更请求、来源记录
 - `templates/change_request_template.md` — 运行中代替直接改规则而写的请求
 - `references/candidate_schema.md` — CSV 契约 + 生成规则
@@ -228,7 +230,23 @@ python3 molecule-design-stage-src/run_design.py \
 
 - xTB，用于量化筛选阶段
 - `research-lit`，作为配套文献辅助 skill
-- `gemini-research`，如果你的 Codex 环境支持
+- `gemini-research` / `gemini-review` MCP（默认的审阅与检索后端）
+- 其他审阅者：Codex MCP、Antigravity MCP、Agent HUD MCP（开一个 Codex、Antigravity 或 DeepSeek 会话当审阅者），或 `manual`
+
+### 选择审阅者
+
+长期偏好写在 `~/.config/molecule-design-loop/reviewer.json`，单个项目写在
+`molecule-design-stage/reviewer.json`，单次运行用 `-- reviewer: …`：
+
+```json
+{"review": {"backend": "codex", "via": "agent-hud"},
+ "search": {"backend": "gemini"},
+ "fallback": ["deepseek@agent-hud", "manual"]}
+```
+
+与执行者同一模型家族的审阅者一律不接受；审阅一旦可能已经跑过，就不会再换别家。各后端的安装与检查见
+**[REVIEWER_SETUP.zh-CN.md](REVIEWER_SETUP.zh-CN.md)**；规则见
+[`reviewer-selection-protocol.md`](molecule-design-loop/references/reviewer-selection-protocol.md)。
 
 ## 仓库结构
 

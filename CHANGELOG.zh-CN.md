@@ -6,7 +6,36 @@
 
 ## 未发布
 
+### 新增
+
+- **审阅者可选**（SKILL.md 第 0 步、完整性规则第 10 条、`references/reviewer-selection-protocol.md`）。
+  以前所有审阅和检索步骤都写死 Gemini：Gemini 不可用时（额度用完、CLI 许可被拒、账号所在地区不符合资格），
+  必做步骤要么停下，要么被临时换成别的模型而没有记录。现在 `review` 角色（第 3.5、9.5、11 步）和
+  `search` 角色（第 1.5-B、5.5 步）按以下顺序选择：本次调用（`-- reviewer: …`）→
+  `molecule-design-stage/reviewer.json` → `~/.config/molecule-design-loop/` 下的用户配置 → 默认 Gemini。
+  后端：`gemini`、`codex`、`antigravity`、`claude-code`、`deepseek`、`manual`。
+- `scripts/reviewer_route.py`（仅标准库）及 `test_reviewer_route.py`。只解析选择，不调用任何模型。
+  `resolve` 给出后端、通道和工具；跳过宿主没有暴露工具的后端；只有在失败能证明请求没有发出
+  （工具缺失、启动失败、鉴权 / 计费 / 地区 / 模型被拒）时，才沿用户主动配置的 `fallback` 列表往下走。
+  超时或断线时以 `REVIEW_UNAVAILABLE` 停下，因为那次审阅可能已经跑完并计费。与执行者同一模型家族的后端会被拒绝。
+  `independence` 按实际作答的模型判断是否独立；同家族或无法确认的审阅记为 `provisional`，不能解除任何标记。
+- **Agent HUD 通道。** `codex@agent-hud`、`antigravity@agent-hud`、`deepseek@agent-hud`（DeepSeek 只能走这条）：
+  审阅者是通过 Agent HUD MCP 新开的独立 agent 会话（`list_models` → `start_session` → `get_message`），
+  自己读输入包，执行者可以在同一会话里回应它。
+- **反驳对话**（第 3.5、9.5 步）。执行者可以在同一审阅会话里对标记提出异议，最多两次，逐条附文件或规格依据。
+  以审阅者最后的回答为准；仍有争议的条目记为 `disputed`，在第 7 步交给用户。第 11 步不允许反驳。
+- `REVIEWER_SETUP.md` / `REVIEWER_SETUP.zh-CN.md`：在自己电脑上安装、配置、检查各个后端的说明，
+  附 `examples/reviewer.example.json`，用 `reviewer_route.py show --host …` 一条命令检查。
+- `DESIGN_LOOP_STATE.json` schema 1.2：`reviewer_routes[]` 记录每一次选路和每一次尝试（包括失败的），
+  以及实际作答的模型和独立性判定。
+
 ### 变更
+
+- 五个审阅 / 检索协议改为通过选定的路线调用；为兼容起见，文件名和 `gemini_*` 列名不变，每份输出开头加一行
+  `Reviewer:`。检索能力为 `needs_check` 的后端必须列出实际检索到的来源，否则第 5.5 步把所有候选物记为 `uncertain`。
+- `provenance.py snapshot` 的备注改为 `reviewer=<label>:<model>` 和 `search=<label>:<model>`，不再用 `gemini_model=…`。
+
+### 变更（昵称）
 
 - skill 有了昵称 **ArtArmAi**：出现在中英文 README 标题、SKILL.md 标题和贡献指南中，
   并作为触发词写入 SKILL.md 的 description。技术名称 `molecule-design-loop`（目录、
