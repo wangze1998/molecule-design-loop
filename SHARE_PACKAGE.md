@@ -6,6 +6,8 @@ This document records the current shareable package scope for `molecule-design-l
 
 - `molecule-design-loop/` — main public Codex skill
 - `examples/example_design_spec.md` — public example input
+- `examples/reviewer.example.json` — example reviewer / search backend choice
+- `REVIEWER_SETUP*` — installing and checking reviewer backends on your own machine
 - `optional-skills/research-lit/SKILL.md` — optional literature companion
 - `install_molecule_design_loop.sh` — public installer
 - `molecule-design-stage-src/` — sanitized reusable stage-runner source package

@@ -1,8 +1,10 @@
-# Gemini Scoring and Pareto Ranking Protocol (Step 11)
+# Scoring and Pareto Ranking Protocol (Step 11)
 
-Start a **fresh Gemini thread** — separate from the adversarial review (Step 3.5) and claim audit (Step 9.5) threads — so the scorer reads the full evidence picture without being anchored to prior critique.
+Dispatch through the `review` route resolved at Step 0 ([reviewer-selection-protocol.md](reviewer-selection-protocol.md)). The `mcp__gemini-review__*` tools named below are the default `gemini` route; another backend uses its own tools from that file, with the same prompt, packet and output format.
 
-## Gemini call
+Start a **fresh reviewer thread** — separate from the adversarial review (Step 3.5) and claim audit (Step 9.5) threads — so the scorer reads the full evidence picture without being anchored to prior critique. There is no rebuttal at this step: the executor does not argue scores up.
+
+## Reviewer call
 
 ```
 system: "You are a scientific design evaluator assessing molecular candidates against a locked design specification. You have access to: the design spec, RDKit filter results, synthesis feasibility assessments (including per-candidate synthesis_cost, time_to_first_sample, overall_yield_estimate, hazard_toxicity_flag, and where available route_alternatives), a prior-art novelty check, xTB results, and a result-to-claim audit that defines exactly what each computation proves. Score each candidate strictly against the design spec. A score of 4 or 5 requires: hard constraints passed, synthesis gate not failed, and no unresolved overclaim flags from the claim audit. Synthesis practicality is a dominance criterion, not a tiebreaker: a candidate that is worse on every practicality axis (cost, time-to-first-sample, yield, hazard) than another candidate of comparable or better property fit is dominated and must not enter the top 3, whatever its score. The goal is to protect the chemist's bench time — rank by what is worth making, not by what scores best on paper."

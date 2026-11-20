@@ -285,6 +285,39 @@ class TestRunIntegrity(unittest.TestCase):
         self.assertIn("--read-only", proc.stderr)
 
 
+class TestReviewerSelection(unittest.TestCase):
+    """A review step wired to one provider either stops the loop or gets switched
+    without a record. These keep the selection step, its record and its rules."""
+
+    def test_step_zero_resolves_the_route(self):
+        rows = [l for l in read(SKILL_MD).splitlines() if l.startswith("| 0 |")]
+        self.assertTrue(rows, "SKILL.md workflow table has no Step 0")
+        self.assertIn("reviewer_route.py resolve", rows[0])
+
+    def test_review_protocols_dispatch_through_the_route(self):
+        root = os.path.join(SKILL_DIR, "references")
+        for name in ("adversarial-review-protocol.md", "claim-audit-protocol.md",
+                     "gemini-scoring-protocol.md", "novelty-check-protocol.md",
+                     "active-search-protocol.md"):
+            with self.subTest(reference=name):
+                self.assertIn("reviewer-selection-protocol.md", read(os.path.join(root, name)))
+
+    def test_selection_protocol_keeps_its_safety_rules(self):
+        text = read(os.path.join(SKILL_DIR, "references", "reviewer-selection-protocol.md"))
+        for phrase in ("Never the executor's family", "REVIEW_UNAVAILABLE",
+                       "The reviewer's last answer is the record", "Step 11 has no rebuttal",
+                       "Save the raw reply first", "mcp__agent-hud__start_session"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
+    def test_state_schema_records_routes(self):
+        text = read(os.path.join(SKILL_DIR, "references", "design-loop-state-schema.md"))
+        self.assertIn("- `reviewer_routes`:", text)
+        self.assertIn("### `reviewer_routes[]`", text)
+        example = json.loads(re.search(r"```json\n(.*?)```", text, re.S).group(1))
+        self.assertIn("reviewer_routes", example)
+
+
 class TestVersionsAgree(unittest.TestCase):
     """The README is the repo's front page; a release that bumps SKILL.md but not the
     README leaves visitors reading an old version number (v0.4.0 shipped that way)."""

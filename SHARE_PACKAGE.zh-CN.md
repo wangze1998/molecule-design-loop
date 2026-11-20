@@ -6,6 +6,8 @@
 
 - `molecule-design-loop/` —— 主公开 Codex skill
 - `examples/example_design_spec.md` —— 公开示例输入
+- `examples/reviewer.example.json` —— 审阅 / 检索后端选择示例
+- `REVIEWER_SETUP*` —— 在自己电脑上安装和检查审阅后端
 - `optional-skills/research-lit/SKILL.md` —— 可选文献辅助 skill
 - `install_molecule_design_loop.sh` —— 公开安装脚本
 - `molecule-design-stage-src/` —— 脱敏后的可复用阶段入口源码包

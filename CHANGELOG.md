@@ -6,7 +6,52 @@ All notable changes to `molecule-design-loop` will be tracked in this file.
 
 ## Unreleased
 
+### Added
+
+- **Selectable reviewers** (SKILL.md Step 0, integrity rule 10,
+  `references/reviewer-selection-protocol.md`). Every review and search step used to be
+  wired to Gemini, so when Gemini could not be reached (credits gone, a CLI licence
+  refused, an account not eligible in its region) the mandatory steps either stopped or
+  were switched to something else without a record. The `review` role (Steps 3.5, 9.5,
+  11) and the `search` role (Steps 1.5-B, 5.5) are now chosen in this order: invocation
+  (`-- reviewer: …`), `molecule-design-stage/reviewer.json`, a user file under
+  `~/.config/molecule-design-loop/`, then the Gemini default. Backends: `gemini`, `codex`,
+  `antigravity`, `claude-code`, `deepseek`, `manual`.
+- `scripts/reviewer_route.py` (stdlib only), with `test_reviewer_route.py`. It parses the
+  choice and never calls a model. `resolve` returns the backend, transport and tools,
+  skips a backend whose tools the host does not expose, and moves down an opt-in
+  `fallback` list only after failures that prove nothing ran (tool missing, start
+  failure, auth / billing / region / model rejected). After a timeout or a dropped
+  connection it stops with `REVIEW_UNAVAILABLE`, because the review may already have
+  run and been billed. A backend of the executor's own model family is refused.
+  `independence` judges executor vs reviewer from the model that actually answered; a
+  same-family or unknown review is `provisional` and cannot clear a flag.
+- **Agent HUD transport.** `codex@agent-hud`, `antigravity@agent-hud`,
+  `deepseek@agent-hud` (DeepSeek is reachable only this way): the reviewer is a separate
+  agent session opened with the Agent HUD MCP (`list_models` → `start_session` →
+  `get_message`). It reads the packet itself, and the executor can answer it in the same
+  session.
+- **Rebuttal exchange** at Steps 3.5 and 9.5. The executor may contest a flag in the
+  same reviewer session at most twice, item by item with file or spec evidence. The
+  reviewer's last answer is the record; items still contested are `disputed` and go to
+  the user at Step 7. Step 11 has no rebuttal.
+- `REVIEWER_SETUP.md` / `REVIEWER_SETUP.zh-CN.md`: how to install, configure and check
+  each backend on your own machine, with `examples/reviewer.example.json` and
+  `reviewer_route.py show --host …` as the one-command check.
+- `DESIGN_LOOP_STATE.json` schema 1.2: `reviewer_routes[]` records every route and
+  every attempt, failed ones included, with the model that answered and the
+  independence verdict.
+
 ### Changed
+
+- The five review / search protocols dispatch through the resolved route; their file
+  names and `gemini_*` columns are unchanged for compatibility, and each output now
+  opens with a `Reviewer:` line. A `needs_check` search backend must list retrieved
+  sources, or Step 5.5 leaves every candidate `uncertain`.
+- `provenance.py snapshot` notes are `reviewer=<label>:<model>` and
+  `search=<label>:<model>` instead of `gemini_model=…`.
+
+### Changed (nickname)
 
 - The skill now carries the nickname **ArtArmAi**: shown in both README titles, the
   SKILL.md heading and the contributor guides, and accepted as a trigger word in the

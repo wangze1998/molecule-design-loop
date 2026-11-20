@@ -4,7 +4,7 @@ Runs in parallel with Step 1.5-A. Always mandatory, regardless of Zotero results
 
 Goal: surface papers the user may not have in their library — very recent publications, landmark reviews, highly-cited foundational works, and papers from adjacent fields with transferable methods.
 
-Use `gemini-research`, WebSearch, or `/research-lit`.
+Use the `search` route resolved at Step 0 ([reviewer-selection-protocol.md](reviewer-selection-protocol.md); default `gemini-research`), WebSearch, or `/research-lit`. Every paper kept needs a DOI or URL that was actually retrieved; a backend that returns none has produced no retrieval evidence, and the packet says so.
 
 ## Three Search Targets
 

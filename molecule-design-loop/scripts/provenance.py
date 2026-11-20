@@ -32,7 +32,7 @@ Exit codes
 Usage
 -----
   provenance.py snapshot --skill-dir SKILL --spec DESIGN_SPEC_LOCKED.md --round 2 \\
-      --note claude_model=... --note gemini_model=... --out ROUND_2_PROVENANCE.json
+      --note claude_model=... --note reviewer=codex@agent-hud:<model> --out ROUND_2_PROVENANCE.json
   provenance.py verify --skill-dir SKILL --against ROUND_2_PROVENANCE.json \\
       --spec DESIGN_SPEC_LOCKED.md --expect-sha256 <printed by snapshot>
   provenance.py diff ROUND_1_PROVENANCE.json ROUND_2_PROVENANCE.json

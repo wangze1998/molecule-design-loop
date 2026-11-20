@@ -1,0 +1,5 @@
+{
+  "review": {"backend": "codex", "via": "agent-hud"},
+  "search": {"backend": "gemini"},
+  "fallback": ["deepseek@agent-hud", "manual"]
+}

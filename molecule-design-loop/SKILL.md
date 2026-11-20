@@ -42,8 +42,8 @@ These are siblings. Do not run polymer work as a sub-case of small-molecule work
 |---|---|---|
 | Claude | orchestrates files, scripts, tables, iteration | review its own candidates |
 | Zotero MCP | personal curated knowledge, scaffolds, SAR context | stand in for the field |
-| Gemini research | active search, prior-art checks | — |
-| Gemini review | independent adversarial critique and claim audit | receive a Claude-written summary |
+| Search backend (default Gemini) | active search, prior-art checks | report "novel" without retrieved sources |
+| Reviewer (default Gemini; user-selectable) | independent adversarial critique, claim audit, scoring | receive a Claude-written summary; share the executor's model family |
 | RDKit | parsing, dedup, descriptors, depiction | judge synthesisability |
 | Synthesis gate | plausible make/buy route before promotion | prove a route works |
 | xTB | low-cost proxies on finite capped models | prove binding, assembly or mechanism |
@@ -65,8 +65,8 @@ fields in a config and let `scripts/build_candidates.py` produce the SMILES copi
 atom indices, repeat-unit drawings and per-round boilerplate. Prose repeated across
 rows goes in the config's `text_blocks` once.
 
-**Pass paths, not payloads.** Build Gemini packets with
-`scripts/build_gemini_inputs.py` and hand over the path. Never retype a CSV into a
+**Pass paths, not payloads.** Build review packets with
+`scripts/build_gemini_inputs.py` and hand the path to the selected reviewer. Never retype a CSV into a
 prompt — the "raw artifacts, never a summary" rule is about what the reviewer reads,
 not about retyping it into the conversation.
 
@@ -88,7 +88,8 @@ available and take back only the file paths.
 | ZOTERO_FULLTEXT_PAPERS | 5–8, keyword windows only |
 | XTB_LEVEL | GFN2-xTB unless the spec says otherwise |
 | SYNTHESIS_GATE_FOR_PROMOTION | route plausible or make-on-demand |
-| GEMINI_REVIEW_MODEL | `gemini-2.5-flash` |
+| REVIEWER / SEARCH default | `gemini` (`gemini-2.5-flash`); chosen per [reviewer-selection-protocol.md](references/reviewer-selection-protocol.md) |
+| REVIEW_REBUTTAL_ROUNDS | 2 executor messages per step, Steps 3.5 and 9.5 only |
 | NMR tolerances | ¹H ±0.20 ppm, ¹³C ±2.0 ppm; CDCl₃, DMSO-d₆, D₂O |
 | AXIS_REDUNDANCY | \|τ-b\| ≥ 0.8 redundant, 0.6–0.8 coupled; `not_assessed` below 8 candidates |
 | STOP_IF_NO_NEW_FEASIBLE_MOTIF | true |
@@ -105,13 +106,14 @@ output by hand. `--help` on any script lists its flags.
 
 | Step | Do | Read | Run |
 |---|---|---|---|
+| 0 | Resolve reviewer and search backends | [reviewer-selection-protocol.md](references/reviewer-selection-protocol.md) | `reviewer_route.py resolve` |
 | 0.5 | SMILES from structure images, if any | [structure-image-input-protocol.md](references/structure-image-input-protocol.md) | — |
 | 1 | Lock the spec → `DESIGN_SPEC_LOCKED.md` | [templates/design_spec_template.md](templates/design_spec_template.md) | — |
 | 1.5-A | Mine Zotero → knowledge packet, seed SMILES | [zotero-extraction-protocol.md](references/zotero-extraction-protocol.md) | — |
 | 1.5-B | Search current + landmark work (parallel) | [active-search-protocol.md](references/active-search-protocol.md) | — |
 | 2 | Merge both → `LIT_PACKET.md`, flag conflicts | — | — |
 | 3 | Snapshot the skill; generate 20–50 candidates | [run-integrity-protocol.md](references/run-integrity-protocol.md), [candidate_schema.md](references/candidate_schema.md) | `provenance.py snapshot`, `build_candidates.py` |
-| 3.5 | Gemini adversarial review | [adversarial-review-protocol.md](references/adversarial-review-protocol.md) | `build_gemini_inputs.py --steps 3.5` |
+| 3.5 | Adversarial review (selected reviewer) | [adversarial-review-protocol.md](references/adversarial-review-protocol.md) | `build_gemini_inputs.py --steps 3.5` |
 | 4 | Deterministic filtering | — | `rdkit_filter_candidates.py` |
 | 5 | Synthesis-feasibility gate | [synthesis-gate-schema.md](references/synthesis-gate-schema.md) | — |
 | 5.5 | Prior-art / novelty check | [novelty-check-protocol.md](references/novelty-check-protocol.md) | `build_gemini_inputs.py --steps 5.5` |
@@ -162,7 +164,18 @@ HOMO/LUMO/gap, dipole, geometry sanity, and any convergence failure. For polymer
 report the capped oligomer surrogate only — never extrapolate to Mn, dispersity,
 Tg, modulus or morphology.
 
-**11 — Score and rank.** Fresh Gemini thread, separate from Steps 3.5 and 9.5.
+**0 — Pick the reviewers.** Resolve the `review` and `search` roles once per round:
+invocation, then `molecule-design-stage/reviewer.json`, then the user's file, then
+Gemini. A backend can be reached directly or as another agent session through Agent
+HUD (`codex@agent-hud`). An unavailable backend stops the step unless the user listed a
+`fallback`, and the loop moves down that list only when the failure proves nothing ran.
+Record every route and attempt in `DESIGN_LOOP_STATE.json`.
+
+**3.5 / 9.5 — Rebuttal.** The executor may answer a critique in the same reviewer
+session, at most twice, item by item with file or spec evidence. The reviewer's last
+answer is the record; what stays contested is `disputed` and goes to the user at Step 7.
+
+**11 — Score and rank.** Fresh reviewer thread, separate from Steps 3.5 and 9.5, no rebuttal.
 Synthesis practicality is a **dominance** criterion, not a tiebreaker: a candidate no
 better on any of {property fit, cost, time, yield, hazard} than another is dominated,
 is recorded as `dominated_by:<id>`, and stays out of the top 3 whatever it scored.
@@ -194,7 +207,8 @@ is reached. `DESIGN_REPORT.md` must contain four sections that are never softene
 settle it), *ranking diagnostics* (redundancy verdict, how many candidates the
 practicality criterion actually dominated, and the ablation result), and *loop
 calibration* (promoted vs. attempted vs. worked, including when it is unflattering),
-and *run integrity* (skill version per round, verify results, change requests).
+and *run integrity* (skill version per round, verify results, change requests, reviewer
+routes with the model that answered and its independence verdict).
 
 ## Integrity rules
 
@@ -227,6 +241,10 @@ These exist because each one has produced a wrong conclusion before.
    `ROUND_N_CHANGE_REQUEST.md` from `templates/change_request_template.md` and stop.
    A failed `provenance.py verify` stops the round. The spec is the user's to change,
    with approval on record.
+10. **Reviewers are independent and named.** Never the executor's model family, never
+   swapped silently, never replaced by the executor's own judgement. A timeout is not a
+   verdict and is not retried with another provider. Each review records the backend
+   and the model that actually answered; same-family or unknown is `provisional`.
 
 ## Outputs
 
@@ -240,7 +258,7 @@ Everything lands in `molecule-design-stage/`:
 `ROUND_N_POLYMER_DESIGN.html` · `ROUND_N_XTB_APPROVAL.md` · `ROUND_N_XTB_RESULTS.csv` ·
 `ROUND_N_CLAIM_AUDIT.md` · `ROUND_N_NMR_PREDICTIONS.csv` · `ROUND_N_NMR_VERIFICATION.md` ·
 `ROUND_N_EXPERIMENT_RESULTS.csv` · `ROUND_N_DECISION.md` · `ROUND_N_PROVENANCE.json` ·
-`ROUND_N_CHANGE_REQUEST.md` · `DESIGN_LOOP_STATE.json` ·
+`ROUND_N_CHANGE_REQUEST.md` · `DESIGN_LOOP_STATE.json` · `reviewer.json` · `_reviews/` ·
 `DESIGN_REPORT.md` · `xtb_jobs/`
 
 `DESIGN_LOOP_STATE.json` is the cross-round memory and the handoff file. Update it in
@@ -253,7 +271,8 @@ place; never overwrite earlier rounds.
 | `build_candidates.py` | config → `ROUND_N_CANDIDATES.csv`, deriving every mechanical column and validating each structure |
 | `rdkit_filter_candidates.py` | descriptors, medchem triage, forbidden-SMARTS filtering |
 | `render_candidate_gallery.py` | filtered CSV → standalone RDKit HTML gallery |
-| `build_gemini_inputs.py` | round files → Steps 3.5 / 5.5 / 9.5 review packets |
+| `build_gemini_inputs.py` | round files → Steps 3.5 / 5.5 / 9.5 review packets (any reviewer) |
+| `reviewer_route.py` | pick reviewer / search backend and transport; safe fallback; independence check (stdlib only) |
 | `ranking_diagnostics.py` | dominance, Pareto and shadow ranks, τ-b matrix (stdlib only) |
 | `inspect_round.py` | bounded views of any round file (stdlib only) |
 | `provenance.py` | snapshot / verify / diff the skill files, spec and environment a round ran on (stdlib only) |
@@ -283,6 +302,7 @@ final structures by hand. The core loop must not depend on GUI automation.
 ```text
 /molecule-design-loop "/path/to/design_spec.md"
 /molecule-design-loop "design_spec.md -- rounds: 2 -- max-xtb: 8"
+/molecule-design-loop "design_spec.md -- reviewer: codex@agent-hud -- search: gemini"
 ```
 
 If no spec exists, run Zotero extraction first to find the theme, pre-populate

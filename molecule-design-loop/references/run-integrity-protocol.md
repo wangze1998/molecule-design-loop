@@ -73,7 +73,7 @@ the locked spec, and the environment.
 
 | When | Command | Purpose |
 |---|---|---|
-| Start of each round, before Step 3 | `provenance.py snapshot --skill-dir <skill> --spec DESIGN_SPEC_LOCKED.md --round N --note claude_model=… --note gemini_model=… --out ROUND_N_PROVENANCE.json` | record the rules this round runs under |
+| Start of each round, before Step 3 | `provenance.py snapshot --skill-dir <skill> --spec DESIGN_SPEC_LOCKED.md --round N --note claude_model=… --note reviewer=<label>:<model> --note search=<label>:<model> --out ROUND_N_PROVENANCE.json` | record the rules this round runs under |
 | Before Step 7 (approval) | `provenance.py verify --skill-dir <skill> --against ROUND_N_PROVENANCE.json --spec DESIGN_SPEC_LOCKED.md --expect-sha256 <pinned>` | show the user the rules are the ones the round started with |
 | Before Step 11 (scoring) | same | ranking is where a quiet edit changes the outcome most |
 | Before Step 12 (write-back) | same | nothing enters cross-round memory from a drifted run |
